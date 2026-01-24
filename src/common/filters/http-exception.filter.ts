@@ -1,4 +1,11 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Request } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -15,6 +22,8 @@ interface ErrorResponse {
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
+
   constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -189,15 +198,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private logError(exception: unknown, response: ErrorResponse): void {
+    const logContext = {
+      statusCode: response.statusCode,
+      path: response.path,
+      error: response.error,
+      message: response.message,
+    };
+
     if (response.statusCode >= 500) {
-      console.error(
-        `[${response.timestamp}] ${response.error} at ${response.path}:`,
-        exception instanceof Error ? exception.stack : exception,
-      );
+      // Log full stack trace for server errors
+      this.logger.error(logContext, exception instanceof Error ? exception.stack : 'Unknown error');
     } else {
-      console.warn(
-        `[${response.timestamp}] ${response.statusCode} ${response.error} at ${response.path}: ${response.message}`,
-      );
+      // Log warning for client errors (4xx)
+      this.logger.warn(logContext);
     }
   }
 }

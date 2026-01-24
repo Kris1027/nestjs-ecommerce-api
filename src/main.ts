@@ -1,7 +1,6 @@
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { env } from './config/env.validation';
-import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
@@ -15,17 +14,12 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
 
   app.enableCors({
-    origin: env.NODE_ENV === 'production' ? ['https://frontend-domain.com'] : true,
+    origin: env.CORS_ORIGIN ?? true, // Use env var or allow all in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
 
   app.use(compression());
-
-  const httpAdapterHost = app.get(HttpAdapterHost);
-
-  // Global exception filter - catches all errors
-  app.useGlobalFilters(new GlobalExceptionFilter(httpAdapterHost));
 
   // Global response interceptor - wraps all successful responses
   app.useGlobalInterceptors(new TransformInterceptor());

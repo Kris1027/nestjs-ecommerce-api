@@ -2,13 +2,18 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { env } from './config/env.validation';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   const httpAdapterHost = app.get(HttpAdapterHost);
 
+  // Global exception filter - catches all errors
   app.useGlobalFilters(new GlobalExceptionFilter(httpAdapterHost));
+
+  // Global response interceptor - wraps all successful responses
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   await app.listen(env.PORT);
 }

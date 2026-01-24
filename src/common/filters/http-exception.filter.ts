@@ -2,6 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from
 import { HttpAdapterHost } from '@nestjs/core';
 import { Request } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
+import { ZodValidationException } from 'nestjs-zod';
 
 interface ErrorResponse {
   success: false;
@@ -50,7 +51,31 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return this.handlePrismaError(exception);
     }
 
-    // 2. Handle HTTP exceptions (NestJS built-in)
+    // 2. Handle Zod validation errors (from nestjs-zod)
+    if (exception instanceof ZodValidationException) {
+      const zodError = exception.getZodError();
+      // Type guard: ensure zodError has the expected shape
+      if (zodError && typeof zodError === 'object' && 'errors' in zodError) {
+        const errors = zodError.errors as Array<{ path: (string | number)[]; message: string }>;
+        const messages = errors.map((err) => {
+          const path = err.path.join('.');
+          return path ? `${path}: ${err.message}` : err.message;
+        });
+        return {
+          status: 400,
+          message: messages.join(', '),
+          error: 'Validation Error',
+        };
+      }
+      // Fallback if zodError shape is unexpected
+      return {
+        status: 400,
+        message: 'Validation failed',
+        error: 'Validation Error',
+      };
+    }
+
+    // 3. Handle HTTP exceptions (NestJS built-in)
     if (exception instanceof HttpException) {
       return {
         status: exception.getStatus(),
@@ -59,7 +84,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    // 3. Handle generic errors
+    // 4. Handle generic errors
     if (exception instanceof Error) {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -68,7 +93,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    // 4. Unknown exception type
+    // 5. Unknown exception type
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'An unexpected error occurred',

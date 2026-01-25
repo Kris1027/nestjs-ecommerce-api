@@ -12,6 +12,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { IncomingMessage } from 'http';
 import { randomUUID } from 'crypto';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       exclude: [{ method: RequestMethod.ALL, path: 'health' }],
     }),
     PrismaModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

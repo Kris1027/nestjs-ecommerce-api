@@ -1,6 +1,6 @@
 import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { LoggerModule } from 'nestjs-pino';
@@ -9,6 +9,11 @@ import { AppService } from './app.service';
 import { validate, env } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { IncomingMessage } from 'http';
+import { randomUUID } from 'crypto';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard, RolesGuard } from './common/guards';
 
 @Module({
   imports: [
@@ -17,7 +22,6 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
       validate,
     }),
 
-    // Rate limiting - multi-tier: 3/sec, 20/10sec, 100/min per IP
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -38,13 +42,18 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
       ],
     }),
 
-    // Structured logging with request context
     LoggerModule.forRoot({
       pinoHttp: {
-        // Log level based on environment
         level: env.NODE_ENV === 'production' ? 'info' : 'debug',
 
-        // Pretty print in development, JSON in production
+        genReqId: (req: IncomingMessage) => {
+          const existingId = req.headers['x-request-id'];
+          if (existingId) {
+            return existingId as string;
+          }
+          return randomUUID();
+        },
+
         transport:
           env.NODE_ENV !== 'production'
             ? {
@@ -57,15 +66,14 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
               }
             : undefined,
 
-        // Custom attribute names for cleaner logs
         customAttributeKeys: {
           req: 'request',
           res: 'response',
           err: 'error',
           responseTime: 'duration',
+          reqId: 'requestId',
         },
 
-        // Don't log request/response bodies (security + performance)
         serializers: {
           req: (req: { method: string; url: string }) => ({
             method: req.method,
@@ -76,10 +84,10 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
           }),
         },
       },
-      // Exclude health check from logs (if you add one later)
       exclude: [{ method: RequestMethod.ALL, path: 'health' }],
     }),
     PrismaModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
@@ -93,8 +101,20 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
       useClass: ThrottlerGuard,
     },
     {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
     },
   ],
 })

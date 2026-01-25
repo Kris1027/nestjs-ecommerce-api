@@ -15,14 +15,14 @@ const registerSchema = z.object({
 
   firstName: z
     .string()
-    .min(1, 'First name is required')
+    .min(1, 'First name cannot be empty')
     .max(50, 'First name too long')
     .trim()
     .optional(),
 
   lastName: z
     .string()
-    .min(1, 'Last name is required')
+    .min(1, 'Last name cannot be empty')
     .max(50, 'Last name too long')
     .trim()
     .optional(),

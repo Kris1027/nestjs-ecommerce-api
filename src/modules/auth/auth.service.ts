@@ -18,7 +18,8 @@ export interface TokenResponse {
   refreshToken: string;
 }
 
-const BCRYPT_ROUNDS = 12;
+const PASSWORD_BCRYPT_ROUNDS = 12;
+const TOKEN_BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,7 @@ export class AuthService {
   // ============================================
 
   private async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, BCRYPT_ROUNDS);
+    return bcrypt.hash(password, PASSWORD_BCRYPT_ROUNDS);
   }
 
   private async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
@@ -52,7 +53,7 @@ export class AuthService {
   }
 
   private async hashToken(token: string): Promise<string> {
-    return bcrypt.hash(token, 10);
+    return bcrypt.hash(token, TOKEN_BCRYPT_ROUNDS);
   }
 
   private getRefreshTokenExpiry(): Date {

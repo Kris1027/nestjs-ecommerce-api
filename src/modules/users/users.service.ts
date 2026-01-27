@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { UpdateProfileDto } from './dto';
 import { Prisma } from '../../generated/prisma/client';
+import type { UpdateProfileDto } from './dto';
+import type { CreateAddressDto, UpdateAddressDto } from './dto';
 
 const profileSelect = {
   id: true,
@@ -18,6 +24,23 @@ const profileSelect = {
 const PASSWORD_BCRYPT_ROUNDS = 12;
 
 type UserProfile = Prisma.UserGetPayload<{ select: typeof profileSelect }>;
+
+const addressSelect = {
+  id: true,
+  type: true,
+  isDefault: true,
+  fullName: true,
+  phone: true,
+  street: true,
+  city: true,
+  region: true,
+  postalCode: true,
+  country: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+type UserAddress = Prisma.AddressGetPayload<{ select: typeof addressSelect }>;
 
 @Injectable()
 export class UsersService {
@@ -79,5 +102,98 @@ export class UsersService {
     });
 
     return { message: 'Password changed successfully' };
+  }
+
+  async getAddresses(userId: string): Promise<UserAddress[]> {
+    return this.prisma.address.findMany({
+      where: { userId },
+      select: addressSelect,
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async getAddress(userId: string, addressId: string): Promise<UserAddress> {
+    const address = await this.prisma.address.findUnique({
+      where: { id: addressId },
+      select: { ...addressSelect, userId: true },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    if (address.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this address');
+    }
+
+    return address;
+  }
+
+  async createAddress(userId: string, data: CreateAddressDto): Promise<UserAddress> {
+    if (data.isDefault) {
+      await this.prisma.address.updateMany({
+        where: { userId, type: data.type, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    return this.prisma.address.create({
+      data: { ...data, userId },
+      select: addressSelect,
+    });
+  }
+
+  async updateAddress(
+    userId: string,
+    addressId: string,
+    data: UpdateAddressDto,
+  ): Promise<UserAddress> {
+    const address = await this.prisma.address.findUnique({
+      where: { id: addressId },
+      select: { userId: true, type: true },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    if (address.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this address');
+    }
+
+    if (data.isDefault) {
+      const type = data.type ?? address.type;
+      await this.prisma.address.updateMany({
+        where: { userId, type, isDefault: true, id: { not: addressId } },
+        data: { isDefault: false },
+      });
+    }
+
+    return this.prisma.address.update({
+      where: { id: addressId },
+      data,
+      select: addressSelect,
+    });
+  }
+
+  async deleteAddress(userId: string, addressId: string): Promise<{ message: string }> {
+    const address = await this.prisma.address.findUnique({
+      where: { id: addressId },
+      select: { userId: true },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    if (address.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this address');
+    }
+
+    await this.prisma.address.delete({
+      where: { id: addressId },
+    });
+
+    return { message: 'Address deleted successfully' };
   }
 }

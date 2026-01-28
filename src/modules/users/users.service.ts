@@ -140,7 +140,9 @@ export class UsersService {
       throw new ForbiddenException('You do not have access to this address');
     }
 
-    return address;
+    // Remove userId from response - it was only needed for ownership verification
+    const { userId: _userId, ...safeAddress } = address;
+    return safeAddress;
   }
 
   async createAddress(userId: string, data: CreateAddressDto): Promise<UserAddress> {

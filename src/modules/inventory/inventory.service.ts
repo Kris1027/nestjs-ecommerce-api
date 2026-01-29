@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma, StockMovementType } from '../../generated/prisma/client';
+import {
+  getPrismaPageArgs,
+  paginate,
+  type PaginatedResult,
+} from '../../common/utils/pagination.util';
+import type { PaginationQuery } from '../../common/dto/pagination.dto';
 
 // Select for stock info response
 const stockInfoSelect = {
@@ -65,7 +71,10 @@ export class InventoryService {
     };
   }
 
-  async getMovementHistory(productId: string, limit = 50): Promise<StockMovement[]> {
+  async getMovementHistory(
+    productId: string,
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<StockMovement>> {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       select: { id: true },
@@ -75,12 +84,21 @@ export class InventoryService {
       throw new NotFoundException('Product not found');
     }
 
-    return this.prisma.stockMovement.findMany({
-      where: { productId },
-      select: movementSelect,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+    const { skip, take } = getPrismaPageArgs(query);
+    const where = { productId };
+
+    const [movements, total] = await Promise.all([
+      this.prisma.stockMovement.findMany({
+        where,
+        select: movementSelect,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.stockMovement.count({ where }),
+    ]);
+
+    return paginate(movements, total, query);
   }
 
   // ============================================
@@ -146,25 +164,29 @@ export class InventoryService {
     });
   }
 
-  async getLowStockProducts(): Promise<StockInfo[]> {
+  async getLowStockProducts(query: PaginationQuery): Promise<PaginatedResult<StockInfo>> {
+    const { skip, take } = getPrismaPageArgs(query);
+
+    // Fetch all active products (low-stock filter requires computed field)
     const products = await this.prisma.product.findMany({
       where: { isActive: true },
       select: stockInfoSelect,
     });
 
-    return products
-      .filter((p) => {
-        const available = p.stock - p.reservedStock;
-        return available <= p.lowStockThreshold;
-      })
-      .map((p) => {
-        const availableStock = p.stock - p.reservedStock;
-        return {
-          ...p,
-          availableStock,
-          isLowStock: true,
-        };
-      });
+    // Filter for low stock (stock - reservedStock <= threshold is computed, can't filter in Prisma)
+    const lowStockProducts = products
+      .filter((p) => p.stock - p.reservedStock <= p.lowStockThreshold)
+      .map((p) => ({
+        ...p,
+        availableStock: p.stock - p.reservedStock,
+        isLowStock: true as const,
+      }));
+
+    // Paginate the filtered results
+    const total = lowStockProducts.length;
+    const paged = lowStockProducts.slice(skip, skip + take);
+
+    return paginate(paged, total, query);
   }
 
   // ============================================

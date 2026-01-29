@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from 
 import { InventoryService } from './inventory.service';
 import { CurrentUser, Roles } from '../../common/decorators';
 import { AdjustStockDto } from './dto';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { StockMovementType } from '../../generated/prisma/client';
 
 @Controller('inventory')
@@ -14,8 +15,10 @@ export class InventoryController {
 
   @Get('low-stock')
   @Roles('ADMIN')
-  getLowStockProducts(): ReturnType<InventoryService['getLowStockProducts']> {
-    return this.inventoryService.getLowStockProducts();
+  getLowStockProducts(
+    @Query() query: PaginationQueryDto,
+  ): ReturnType<InventoryService['getLowStockProducts']> {
+    return this.inventoryService.getLowStockProducts(query);
   }
 
   @Get(':productId')
@@ -28,10 +31,9 @@ export class InventoryController {
   @Roles('ADMIN')
   getMovementHistory(
     @Param('productId') productId: string,
-    @Query('limit') limit?: string,
+    @Query() query: PaginationQueryDto,
   ): ReturnType<InventoryService['getMovementHistory']> {
-    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
-    return this.inventoryService.getMovementHistory(productId, parsedLimit);
+    return this.inventoryService.getMovementHistory(productId, query);
   }
 
   @Post(':productId/adjust')

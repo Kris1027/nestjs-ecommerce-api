@@ -121,8 +121,10 @@ model Product {
   comparePrice Decimal? @map("compare_price") @db.Decimal(10, 2)
 
   // Inventory
-  sku   String? @unique // Stock Keeping Unit
-  stock Int     @default(0)
+  sku               String? @unique // Stock Keeping Unit
+  stock             Int     @default(0)
+  reservedStock     Int     @default(0) @map("reserved_stock")
+  lowStockThreshold Int     @default(5) @map("low_stock_threshold")
 
   // Relations
   categoryId String         @map("category_id")
@@ -134,8 +136,9 @@ model Product {
   isFeatured Boolean @default(false) @map("is_featured")
 
   // Timestamps
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  stockMovements StockMovement[]
 
   @@index([categoryId]) // FK index for relation queries
   @@index([isActive, isFeatured]) // Compound index for filtered listings
@@ -155,4 +158,40 @@ model ProductImage {
 
   @@index([productId]) // FK index for relation queries
   @@map("product_images")
+}
+
+// ============================================
+// INVENTORY
+// ============================================
+
+enum StockMovementType {
+  ADJUSTMENT // Manual admin adjustment
+  RESERVATION // Reserved for cart/checkout
+  RELEASE // Released from abandoned cart
+  SALE // Sold (order completed)
+  RETURN // Returned by customer
+  RESTOCK // New inventory received
+}
+
+model StockMovement {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  type     StockMovementType
+  quantity Int // Positive = increase, Negative = decrease
+  reason   String? // optional explanation
+
+  // Snapshot at time of movement (for audit)
+  stockBefore Int @map("stock_before")
+  stockAfter  Int @map("stock_after")
+
+  // Who made this change
+  userId String? @map("user_id") // Null for system actions
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("stock_movements")
 }

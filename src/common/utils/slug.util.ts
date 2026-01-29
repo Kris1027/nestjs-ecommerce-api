@@ -13,10 +13,12 @@
  *
  * @example
  * generateSlug("iPhone 15 Pro Max!") // "iphone-15-pro-max"
- * generateSlug("  Café Latte  ")     // "caf-latte"
+ * generateSlug("  Café Latte  ")     // "cafe-latte"
  */
 export function generateSlug(text: string): string {
   return text
+    .normalize('NFD') // Decompose: "é" → "e" + combining accent mark
+    .replace(/[\u0300-\u036f]/g, '') // Strip combining diacritical marks → "e"
     .toLowerCase() // Convert to lowercase
     .trim() // Remove leading/trailing whitespace
     .replace(/[^a-z0-9\s-]/g, '') // Remove special characters (keep letters, numbers, spaces, hyphens)

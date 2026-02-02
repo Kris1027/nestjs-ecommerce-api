@@ -1,12 +1,12 @@
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  // CJS required for NestJS compatibility (Prisma 7 defaults to ESM)
-  moduleFormat = "cjs"
+        provider     = "prisma-client"
+        output       = "../src/generated/prisma"
+        // CJS required for NestJS compatibility (Prisma 7 defaults to ESM)
+        moduleFormat = "cjs"
 }
 
 datasource db {
-  provider = "postgresql"
+        provider = "postgresql"
 }
 
 // ============================================
@@ -14,71 +14,72 @@ datasource db {
 // ============================================
 
 enum Role {
-  CUSTOMER
-  ADMIN
+        CUSTOMER
+        ADMIN
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String?  @map("first_name")
-  lastName  String?  @map("last_name")
-  role      Role     @default(CUSTOMER)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+        id        String   @id @default(cuid())
+        email     String   @unique
+        password  String
+        firstName String?  @map("first_name")
+        lastName  String?  @map("last_name")
+        role      Role     @default(CUSTOMER)
+        isActive  Boolean  @default(true) @map("is_active")
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
-  addresses     Address[]
+        refreshTokens RefreshToken[]
+        addresses     Address[]
+        cart          Cart?
 
-  @@map("users")
+        @@map("users")
 }
 
 model RefreshToken {
-  id          String   @id @default(cuid())
-  tokenHash   String   @map("token_hash")
-  tokenFamily String   @map("token_family")
-  userId      String   @map("user_id")
-  userAgent   String?  @map("user_agent")
-  ipAddress   String?  @map("ip_address")
-  expiresAt   DateTime @map("expires_at")
-  isRevoked   Boolean  @default(false) @map("is_revoked")
-  createdAt   DateTime @default(now()) @map("created_at")
+        id          String   @id @default(cuid())
+        tokenHash   String   @map("token_hash")
+        tokenFamily String   @map("token_family")
+        userId      String   @map("user_id")
+        userAgent   String?  @map("user_agent")
+        ipAddress   String?  @map("ip_address")
+        expiresAt   DateTime @map("expires_at")
+        isRevoked   Boolean  @default(false) @map("is_revoked")
+        createdAt   DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+        user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([tokenFamily])
-  @@map("refresh_tokens")
+        @@index([userId])
+        @@index([tokenFamily])
+        @@map("refresh_tokens")
 }
 
 enum AddressType {
-  SHIPPING
-  BILLING
+        SHIPPING
+        BILLING
 }
 
 model Address {
-  id        String      @id @default(cuid())
-  userId    String      @map("user_id")
-  type      AddressType @default(SHIPPING)
-  isDefault Boolean     @default(false) @map("is_default")
+        id        String      @id @default(cuid())
+        userId    String      @map("user_id")
+        type      AddressType @default(SHIPPING)
+        isDefault Boolean     @default(false) @map("is_default")
 
-  fullName   String  @map("full_name")
-  phone      String
-  street     String
-  city       String
-  region     String?
-  postalCode String  @map("postal_code")
-  country    String  @default("PL")
+        fullName   String  @map("full_name")
+        phone      String
+        street     String
+        city       String
+        region     String?
+        postalCode String  @map("postal_code")
+        country    String  @default("PL")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+        user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@map("addresses")
+        @@index([userId])
+        @@map("addresses")
 }
 
 // ============================================
@@ -86,78 +87,79 @@ model Address {
 // ============================================
 
 model Category {
-  id          String  @id @default(cuid())
-  name        String
-  slug        String  @unique
-  description String?
-  imageUrl    String? @map("image_url")
+        id          String  @id @default(cuid())
+        name        String
+        slug        String  @unique
+        description String?
+        imageUrl    String? @map("image_url")
 
-  // Hierarchical structure (self-relation)
-  parentId String?    @map("parent_id")
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryTree")
+        // Hierarchical structure (self-relation)
+        parentId String?    @map("parent_id")
+        parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+        children Category[] @relation("CategoryTree")
 
-  // Soft delete & ordering
-  isActive  Boolean @default(true) @map("is_active")
-  sortOrder Int     @default(0) @map("sort_order")
+        // Soft delete & ordering
+        isActive  Boolean @default(true) @map("is_active")
+        sortOrder Int     @default(0) @map("sort_order")
 
-  // Timestamps
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  products  Product[]
+        // Timestamps
+        createdAt DateTime  @default(now()) @map("created_at")
+        updatedAt DateTime  @updatedAt @map("updated_at")
+        products  Product[]
 
-  @@index([parentId])
-  @@map("categories")
+        @@index([parentId])
+        @@map("categories")
 }
 
 model Product {
-  id          String  @id @default(cuid())
-  name        String
-  slug        String  @unique
-  description String?
+        id          String  @id @default(cuid())
+        name        String
+        slug        String  @unique
+        description String?
 
-  // Pricing - Use Decimal, NOT @db.Money (causes rounding issues)
-  price        Decimal  @db.Decimal(10, 2) // Max: 99,999,999.99
-  comparePrice Decimal? @map("compare_price") @db.Decimal(10, 2)
+        // Pricing - Use Decimal, NOT @db.Money (causes rounding issues)
+        price        Decimal  @db.Decimal(10, 2) // Max: 99,999,999.99
+        comparePrice Decimal? @map("compare_price") @db.Decimal(10, 2)
 
-  // Inventory
-  sku               String? @unique // Stock Keeping Unit
-  stock             Int     @default(0)
-  reservedStock     Int     @default(0) @map("reserved_stock")
-  lowStockThreshold Int     @default(5) @map("low_stock_threshold")
+        // Inventory
+        sku               String? @unique // Stock Keeping Unit
+        stock             Int     @default(0)
+        reservedStock     Int     @default(0) @map("reserved_stock")
+        lowStockThreshold Int     @default(5) @map("low_stock_threshold")
 
-  // Relations
-  categoryId String         @map("category_id")
-  category   Category       @relation(fields: [categoryId], references: [id])
-  images     ProductImage[]
+        // Relations
+        categoryId String         @map("category_id")
+        category   Category       @relation(fields: [categoryId], references: [id])
+        images     ProductImage[]
 
-  // Status
-  isActive   Boolean @default(true) @map("is_active")
-  isFeatured Boolean @default(false) @map("is_featured")
+        // Status
+        isActive   Boolean @default(true) @map("is_active")
+        isFeatured Boolean @default(false) @map("is_featured")
 
-  // Timestamps
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
-  stockMovements StockMovement[]
+        // Timestamps
+        createdAt      DateTime        @default(now()) @map("created_at")
+        updatedAt      DateTime        @updatedAt @map("updated_at")
+        stockMovements StockMovement[]
+        cartItems      CartItem[]
 
-  @@index([categoryId]) // FK index for relation queries
-  @@index([isActive, isFeatured]) // Compound index for filtered listings
-  @@map("products")
+        @@index([categoryId]) // FK index for relation queries
+        @@index([isActive, isFeatured]) // Compound index for filtered listings
+        @@map("products")
 }
 
 model ProductImage {
-  id        String  @id @default(cuid())
-  url       String
-  alt       String? // Accessibility
-  sortOrder Int     @default(0) @map("sort_order")
+        id        String  @id @default(cuid())
+        url       String
+        alt       String? // Accessibility
+        sortOrder Int     @default(0) @map("sort_order")
 
-  productId String  @map("product_id")
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+        productId String  @map("product_id")
+        product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now()) @map("created_at")
+        createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([productId]) // FK index for relation queries
-  @@map("product_images")
+        @@index([productId]) // FK index for relation queries
+        @@map("product_images")
 }
 
 // ============================================
@@ -165,33 +167,69 @@ model ProductImage {
 // ============================================
 
 enum StockMovementType {
-  ADJUSTMENT // Manual admin adjustment
-  RESERVATION // Reserved for cart/checkout
-  RELEASE // Released from abandoned cart
-  SALE // Sold (order completed)
-  RETURN // Returned by customer
-  RESTOCK // New inventory received
+        ADJUSTMENT // Manual admin adjustment
+        RESERVATION // Reserved for cart/checkout
+        RELEASE // Released from abandoned cart
+        SALE // Sold (order completed)
+        RETURN // Returned by customer
+        RESTOCK // New inventory received
 }
 
 model StockMovement {
-  id        String  @id @default(cuid())
-  productId String  @map("product_id")
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+        id        String  @id @default(cuid())
+        productId String  @map("product_id")
+        product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  type     StockMovementType
-  quantity Int // Positive = increase, Negative = decrease
-  reason   String? // optional explanation
+        type     StockMovementType
+        quantity Int // Positive = increase, Negative = decrease
+        reason   String? // optional explanation
 
-  // Snapshot at time of movement (for audit)
-  stockBefore Int @map("stock_before")
-  stockAfter  Int @map("stock_after")
+        // Snapshot at time of movement (for audit)
+        stockBefore Int @map("stock_before")
+        stockAfter  Int @map("stock_after")
 
-  // Who made this change
-  userId String? @map("user_id") // Null for system actions
+        // Who made this change
+        userId String? @map("user_id") // Null for system actions
 
-  createdAt DateTime @default(now()) @map("created_at")
+        createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([productId])
-  @@index([createdAt])
-  @@map("stock_movements")
+        @@index([productId])
+        @@index([createdAt])
+        @@map("stock_movements")
+}
+
+// ============================================
+// CART
+// ============================================
+
+model Cart {
+        id     String @id @default(cuid())
+        userId String @unique @map("user_id") // One cart per user
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+        items CartItem[]
+
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@map("carts")
+}
+
+model CartItem {
+        id     String @id @default(cuid())
+        cartId String @map("cart_id")
+        cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+        productId String  @map("product_id")
+        product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+        quantity Int
+
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@unique([cartId, productId]) // One entry per product per cart
+        @@index([cartId])
+        @@index([productId])
+        @@map("cart_items")
 }

@@ -18,6 +18,7 @@ import { UsersModule } from './modules/users/users.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     CategoriesModule,
     ProductsModule,
     InventoryModule,
+    CartModule,
   ],
   controllers: [AppController],
   providers: [

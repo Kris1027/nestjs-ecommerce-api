@@ -7,6 +7,7 @@ import {
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
 import { ensureUniqueOrderNumber } from '../../common/utils/order-number.util';
+import { CouponsService } from '../coupons/coupons.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
@@ -33,6 +34,8 @@ const orderListSelect = {
   orderNumber: true,
   status: true,
   subtotal: true,
+  discountAmount: true,
+  couponCode: true,
   shippingCost: true,
   tax: true,
   total: true,
@@ -75,7 +78,10 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly couponsService: CouponsService,
+  ) {}
 
   // ============================================
   // CUSTOMER METHODS
@@ -144,9 +150,25 @@ export class OrdersService {
       return sum + Number(item.product.price) * item.quantity;
     }, 0);
 
+    // 5. Validate and calculate coupon discount (if provided)
+    let couponId: string | null = null;
+    let couponCode: string | null = null;
+    let discountAmount = 0;
+
+    if (dto.couponCode) {
+      const couponResult = await this.couponsService.validateCoupon(
+        dto.couponCode,
+        userId,
+        subtotal,
+      );
+      couponId = couponResult.couponId;
+      couponCode = dto.couponCode;
+      discountAmount = couponResult.discountAmount;
+    }
+
     const tax = 0; // Will integrate tax calculation later
     const shippingCost = 0; // Will integrate shipping calculation later
-    const total = subtotal + tax + shippingCost;
+    const total = subtotal - discountAmount + shippingCost + tax;
 
     // 5. Generate a unique order number (retry on collision)
     const orderNumber = await ensureUniqueOrderNumber((num) =>
@@ -169,6 +191,8 @@ export class OrdersService {
           shippingPostalCode: address.postalCode,
           shippingCountry: address.country,
           subtotal,
+          discountAmount,
+          couponCode,
           shippingCost,
           tax,
           total,
@@ -222,6 +246,24 @@ export class OrdersService {
             stockAfter: product.stock,
             userId,
           },
+        });
+      }
+
+      // Record coupon usage (inside transaction for atomicity)
+      if (couponId) {
+        await tx.couponUsage.create({
+          data: {
+            couponId,
+            userId,
+            orderId: created.id,
+            discountAmount,
+          },
+        });
+
+        // Increment the denormalized usage counter
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usageCount: { increment: 1 } },
         });
       }
 

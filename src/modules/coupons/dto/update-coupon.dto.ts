@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
 
-const decimalString = (field: string) =>
+const decimalString = (field: string): z.ZodType<number> =>
   z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, `${field} must be a valid amount (e.g., 99.99)`)

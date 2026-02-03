@@ -32,6 +32,7 @@ model User {
         refreshTokens RefreshToken[]
         addresses     Address[]
         cart          Cart?
+        orders        Order[]
 
         @@map("users")
 }
@@ -141,6 +142,7 @@ model Product {
         updatedAt      DateTime        @updatedAt @map("updated_at")
         stockMovements StockMovement[]
         cartItems      CartItem[]
+        orderItems     OrderItem[]
 
         @@index([categoryId]) // FK index for relation queries
         @@index([isActive, isFeatured]) // Compound index for filtered listings
@@ -232,4 +234,79 @@ model CartItem {
         @@index([cartId])
         @@index([productId])
         @@map("cart_items")
+}
+
+// ============================================
+// ORDERS
+// ============================================
+
+enum OrderStatus {
+        PENDING // Order created, awaiting payment
+        CONFIRMED // Payment received
+        PROCESSING // Being prepared/packed
+        SHIPPED // Handed to carrier
+        DELIVERED // Customer received it
+        CANCELLED // Cancelled by customer or admin
+}
+
+model Order {
+        id          String      @id @default(cuid())
+        orderNumber String      @unique @map("order_number") // Human-readable "ORD-20260202-XXXX"
+        userId      String      @map("user_id")
+        user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+        status      OrderStatus @default(PENDING)
+
+        // Address snapshots (copied at checkout, not a FK reference)
+        // Why snapshots? If user edits/deletes address later, order history stays intact
+        shippingFullName   String  @map("shipping_full_name")
+        shippingPhone      String  @map("shipping_phone")
+        shippingStreet     String  @map("shipping_street")
+        shippingCity       String  @map("shipping_city")
+        shippingRegion     String? @map("shipping_region")
+        shippingPostalCode String  @map("shipping_postal_code")
+        shippingCountry    String  @map("shipping_country")
+
+        // Money fields - Decimal avoids floating point errors (e.g., 0.1 + 0.2 !== 0.3)
+        subtotal     Decimal @db.Decimal(10, 2) // Sum of all lines total
+        shippingCost Decimal @default(0) @map("shipping_cost") @db.Decimal(10, 2)
+        tax          Decimal @default(0) @db.Decimal(10, 2)
+        total        Decimal @db.Decimal(10, 2) // subtotal + shipping + tax
+
+        // Optional notes
+        notes      String? // Customer notes ("leave at door")
+        adminNotes String? @map("admin_notes") // Internal staff notes
+
+        items OrderItem[]
+
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@index([userId]) // Find all orders for a user
+        @@index([status]) // Filter orders by status (admin dashboard)
+        @@index([orderNumber]) // Fast lookup by order number
+        @@map("orders")
+}
+
+model OrderItem {
+        id      String @id @default(cuid())
+        orderId String @map("order_id")
+        order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+        productId String?  @map("product_id")
+        product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+        // Product snapshot at time of purchase (prices/names can change later)
+        productName     String  @map("product_name")
+        productSku      String? @map("product_sku")
+        productImageUrl String? @map("product_image_url")
+
+        quantity  Int
+        unitPrice Decimal @map("unit_price") @db.Decimal(10, 2) // Price per unit at checkout
+        lineTotal Decimal @map("line_total") @db.Decimal(10, 2) // unitPrice * quantity
+
+        createdAt DateTime @default(now()) @map("created_at")
+
+        @@index([orderId]) // Get all items for an order
+        @@index([productId]) // Find orders containing a product
+        @@map("order_items")
 }

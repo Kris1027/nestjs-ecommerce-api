@@ -190,6 +190,23 @@ export class OrdersService {
 
       // Reserve stock for each item inside the same transaction
       for (const item of cart.items) {
+        // Re-validate stock inside transaction to prevent race conditions
+        const product = await tx.product.findUnique({
+          where: { id: item.product.id },
+          select: { stock: true, reservedStock: true },
+        });
+
+        if (!product) {
+          throw new BadRequestException(`Product "${item.product.name}" is no longer available`);
+        }
+
+        const availableStock = product.stock - product.reservedStock;
+        if (item.quantity > availableStock) {
+          throw new BadRequestException(
+            `Insufficient stock for "${item.product.name}". Available: ${availableStock}`,
+          );
+        }
+
         await tx.product.update({
           where: { id: item.product.id },
           data: { reservedStock: { increment: item.quantity } },
@@ -201,8 +218,8 @@ export class OrdersService {
             type: StockMovementType.RESERVATION,
             quantity: -item.quantity,
             reason: `Reserved for order ${orderNumber}`,
-            stockBefore: item.product.stock,
-            stockAfter: item.product.stock,
+            stockBefore: product.stock,
+            stockAfter: product.stock,
             userId,
           },
         });
@@ -301,28 +318,58 @@ export class OrdersService {
         select: orderDetailSelect,
       });
 
-      // Release reserved stock for each item
+      // Restore stock for each item based on order status
       for (const item of order.items) {
         if (!item.productId) {
           continue;
         } // Product was deleted
 
-        await tx.product.update({
+        const product = await tx.product.findUnique({
           where: { id: item.productId },
-          data: { reservedStock: { decrement: item.quantity } },
+          select: { stock: true, reservedStock: true },
         });
 
-        await tx.stockMovement.create({
-          data: {
-            productId: item.productId,
-            type: StockMovementType.RELEASE,
-            quantity: item.quantity,
-            reason: `Released from cancelled order ${order.orderNumber}`,
-            stockBefore: 0, // Simplified — exact value not critical for releases
-            stockAfter: 0,
-            userId,
-          },
-        });
+        if (!product) {
+          continue;
+        }
+
+        if (order.status === OrderStatus.PENDING) {
+          // PENDING: stock was only reserved, release the reservation
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { reservedStock: { decrement: item.quantity } },
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: StockMovementType.RELEASE,
+              quantity: item.quantity,
+              reason: `Released from cancelled order ${order.orderNumber}`,
+              stockBefore: product.stock,
+              stockAfter: product.stock,
+              userId,
+            },
+          });
+        } else {
+          // CONFIRMED: stock was already deducted by confirmSale, add it back
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: StockMovementType.RETURN,
+              quantity: item.quantity,
+              reason: `Returned from cancelled order ${order.orderNumber}`,
+              stockBefore: product.stock,
+              stockAfter: product.stock + item.quantity,
+              userId,
+            },
+          });
+        }
       }
 
       return cancelled;
@@ -434,8 +481,8 @@ export class OrdersService {
         }
       }
 
-      // If admin cancels, release reserved stock (only if not yet confirmed)
-      if (newStatus === OrderStatus.CANCELLED && order.status === OrderStatus.PENDING) {
+      // If admin cancels, restore stock based on current order status
+      if (newStatus === OrderStatus.CANCELLED) {
         for (const item of order.items) {
           if (!item.productId) {
             continue;
@@ -446,7 +493,12 @@ export class OrdersService {
             select: { stock: true, reservedStock: true },
           });
 
-          if (product) {
+          if (!product) {
+            continue;
+          }
+
+          if (order.status === OrderStatus.PENDING) {
+            // PENDING: release reservation
             await tx.product.update({
               where: { id: item.productId },
               data: { reservedStock: { decrement: item.quantity } },
@@ -460,6 +512,23 @@ export class OrdersService {
                 reason: `Released from cancelled order ${order.orderNumber}`,
                 stockBefore: product.stock,
                 stockAfter: product.stock,
+              },
+            });
+          } else if (order.status === OrderStatus.CONFIRMED) {
+            // CONFIRMED: stock was already deducted, add it back
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            });
+
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId,
+                type: StockMovementType.RETURN,
+                quantity: item.quantity,
+                reason: `Returned from cancelled order ${order.orderNumber}`,
+                stockBefore: product.stock,
+                stockAfter: product.stock + item.quantity,
               },
             });
           }

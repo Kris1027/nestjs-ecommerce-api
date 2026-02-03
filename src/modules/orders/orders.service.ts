@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InventoryService } from '../inventory/inventory.service';
 import { Prisma, OrderStatus, StockMovementType } from '../../generated/prisma/client';
 import {
   getPrismaPageArgs,
@@ -76,10 +75,7 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly inventoryService: InventoryService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // ============================================
   // CUSTOMER METHODS
@@ -397,33 +393,87 @@ export class OrdersService {
       );
     }
 
-    // If confirming the order, convert reservations to actual sales
-    if (newStatus === OrderStatus.CONFIRMED) {
-      for (const item of order.items) {
-        if (!item.productId) {
-          continue;
-        }
-        await this.inventoryService.confirmSale(item.productId, item.quantity);
-      }
-    }
+    // Update status + stock operations atomically in one transaction
+    return this.prisma.$transaction(async (tx) => {
+      // If confirming the order, convert reservations to actual sales
+      if (newStatus === OrderStatus.CONFIRMED) {
+        for (const item of order.items) {
+          if (!item.productId) {
+            continue;
+          }
 
-    // If admin cancels, release reserved stock (only if not yet confirmed)
-    if (newStatus === OrderStatus.CANCELLED && order.status === OrderStatus.PENDING) {
-      for (const item of order.items) {
-        if (!item.productId) {
-          continue;
-        }
-        await this.inventoryService.releaseStock(item.productId, item.quantity);
-      }
-    }
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { stock: true, reservedStock: true },
+          });
 
-    return this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: newStatus,
-        adminNotes: dto.adminNotes,
-      },
-      select: orderDetailSelect,
+          if (!product || item.quantity > product.reservedStock) {
+            throw new BadRequestException(
+              `Cannot confirm sale: insufficient reserved stock for product ${item.productId}`,
+            );
+          }
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: { decrement: item.quantity },
+              reservedStock: { decrement: item.quantity },
+            },
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: StockMovementType.SALE,
+              quantity: -item.quantity,
+              reason: `Order ${order.orderNumber} confirmed`,
+              stockBefore: product.stock,
+              stockAfter: product.stock - item.quantity,
+            },
+          });
+        }
+      }
+
+      // If admin cancels, release reserved stock (only if not yet confirmed)
+      if (newStatus === OrderStatus.CANCELLED && order.status === OrderStatus.PENDING) {
+        for (const item of order.items) {
+          if (!item.productId) {
+            continue;
+          }
+
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { stock: true, reservedStock: true },
+          });
+
+          if (product) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { reservedStock: { decrement: item.quantity } },
+            });
+
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId,
+                type: StockMovementType.RELEASE,
+                quantity: item.quantity,
+                reason: `Released from cancelled order ${order.orderNumber}`,
+                stockBefore: product.stock,
+                stockAfter: product.stock,
+              },
+            });
+          }
+        }
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: newStatus,
+          adminNotes: dto.adminNotes,
+        },
+        select: orderDetailSelect,
+      });
     });
   }
 }

@@ -7,6 +7,7 @@ import {
   paginate,
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
+import { ensureUniqueOrderNumber } from '../../common/utils/order-number.util';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
@@ -81,17 +82,6 @@ export class OrdersService {
   ) {}
 
   // ============================================
-  // HELPERS
-  // ============================================
-
-  // Generates "ORD-20260203-A1B2" style order numbers
-  private generateOrderNumber(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `ORD-${date}-${random}`;
-  }
-
-  // ============================================
   // CUSTOMER METHODS
   // ============================================
 
@@ -163,14 +153,9 @@ export class OrdersService {
     const total = subtotal + tax + shippingCost;
 
     // 5. Generate a unique order number (retry on collision)
-    let orderNumber = this.generateOrderNumber();
-    const existing = await this.prisma.order.findUnique({
-      where: { orderNumber },
-      select: { id: true },
-    });
-    if (existing) {
-      orderNumber = this.generateOrderNumber();
-    }
+    const orderNumber = await ensureUniqueOrderNumber((num) =>
+      this.prisma.order.findUnique({ where: { orderNumber: num }, select: { id: true } }),
+    );
 
     // 6. Create order, order items, reserve stock, and clear cart — all atomically
     const order = await this.prisma.$transaction(async (tx) => {

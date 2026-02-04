@@ -21,6 +21,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { CouponsModule } from './modules/coupons/coupons.module';
     CartModule,
     OrdersModule,
     CouponsModule,
+    ShippingModule,
   ],
   controllers: [AppController],
   providers: [

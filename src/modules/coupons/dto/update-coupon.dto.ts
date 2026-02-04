@@ -1,15 +1,9 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
-
-const decimalString = (field: string): z.ZodType<number> =>
-  z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, `${field} must be a valid amount (e.g., 99.99)`)
-    .transform((val) => parseFloat(val));
+import { decimalString } from '../../../common/utils/decimal.util';
 
 const updateCouponSchema = z
   .object({
-    // Code can be changed (e.g., fix a typo) - same format rules apply
     code: z
       .string()
       .min(3, 'Code must be at least 3 characters')

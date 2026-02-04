@@ -3,7 +3,8 @@ import { ShippingService } from './shipping.service';
 import { ShippingController } from './shipping.controller';
 
 @Module({
-  providers: [ShippingService],
   controllers: [ShippingController],
+  providers: [ShippingService],
+  exports: [ShippingService],
 })
 export class ShippingModule {}

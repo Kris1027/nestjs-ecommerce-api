@@ -7,6 +7,9 @@ const createOrderSchema = z.object({
   // ID of a saved address from the user's address book
   shippingAddressId: z.cuid('Invalid address ID'),
 
+  // ID of the chosen shipping method (from GET /shipping/methods)
+  shippingMethodId: z.cuid('Invalid shipping method ID'),
+
   // Optional coupon code to apply discount
   couponCode: z
     .string()

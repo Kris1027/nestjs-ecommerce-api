@@ -34,6 +34,7 @@ model User {
         cart          Cart?
         orders        Order[]
         couponUsages  CouponUsage[]
+        reviews       Review[]
 
         @@map("users")
 }
@@ -135,8 +136,10 @@ model Product {
         images     ProductImage[]
 
         // Status
-        isActive   Boolean @default(true) @map("is_active")
-        isFeatured Boolean @default(false) @map("is_featured")
+        isActive      Boolean  @default(true) @map("is_active")
+        isFeatured    Boolean  @default(false) @map("is_featured")
+        averageRating Decimal? @map("average_rating") @db.Decimal(2, 1)
+        reviewCount   Int      @default(0) @map("review_count")
 
         // Timestamps
         createdAt      DateTime        @default(now()) @map("created_at")
@@ -144,6 +147,7 @@ model Product {
         stockMovements StockMovement[]
         cartItems      CartItem[]
         orderItems     OrderItem[]
+        reviews        Review[]
 
         @@index([categoryId]) // FK index for relation queries
         @@index([isActive, isFeatured]) // Compound index for filtered listings
@@ -393,4 +397,41 @@ model ShippingMethod {
         updatedAt DateTime @updatedAt @map("updated_at")
 
         @@map("shipping_methods")
+}
+
+// ============================================
+// REVIEWS
+// ============================================
+
+enum ReviewStatus {
+        PENDING // Awaiting admin moderation
+        APPROVED // Visible to public
+        REJECTED // Hidden, with admin note
+}
+
+model Review {
+        id        String  @id @default(cuid())
+        userId    String  @map("user_id")
+        user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+        productId String  @map("product_id")
+        product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+        // Review content
+        rating  Int // 1-5 stars (validated in DTO, not DB)
+        title   String? // Optional headline: "Great product!"
+        comment String // Review body text (min length validated in DTO)
+
+        // Moderation
+        status    ReviewStatus @default(PENDING)
+        adminNote String?      @map("admin_note") // Reason for rejection
+
+        // Timestamps
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@unique([userId, productId]) // One review per user per product
+        @@index([productId]) // Get all reviews for a product
+        @@index([userId]) // Get all reviews by a user
+        @@index([status]) // Filter by moderation status
+        @@map("reviews")
 }

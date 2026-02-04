@@ -33,6 +33,7 @@ model User {
         addresses     Address[]
         cart          Cart?
         orders        Order[]
+        couponUsages  CouponUsage[]
 
         @@map("users")
 }
@@ -265,12 +266,15 @@ model Order {
         shippingRegion     String? @map("shipping_region")
         shippingPostalCode String  @map("shipping_postal_code")
         shippingCountry    String  @map("shipping_country")
+        shippingMethodName String? @map("shipping_method_name")
 
         // Money fields - Decimal avoids floating point errors (e.g., 0.1 + 0.2 !== 0.3)
-        subtotal     Decimal @db.Decimal(10, 2) // Sum of all lines total
-        shippingCost Decimal @default(0) @map("shipping_cost") @db.Decimal(10, 2)
-        tax          Decimal @default(0) @db.Decimal(10, 2)
-        total        Decimal @db.Decimal(10, 2) // subtotal + shipping + tax
+        subtotal       Decimal @db.Decimal(10, 2) // Sum of all lines total
+        shippingCost   Decimal @default(0) @map("shipping_cost") @db.Decimal(10, 2)
+        tax            Decimal @default(0) @db.Decimal(10, 2)
+        discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(10, 2)
+        couponCode     String? @map("coupon_code")
+        total          Decimal @db.Decimal(10, 2) // subtotal + shipping + tax
 
         // Optional notes
         notes      String? // Customer notes ("leave at door")
@@ -278,8 +282,9 @@ model Order {
 
         items OrderItem[]
 
-        createdAt DateTime @default(now()) @map("created_at")
-        updatedAt DateTime @updatedAt @map("updated_at")
+        createdAt   DateTime     @default(now()) @map("created_at")
+        updatedAt   DateTime     @updatedAt @map("updated_at")
+        couponUsage CouponUsage?
 
         @@index([userId]) // Find all orders for a user
         @@index([status]) // Filter orders by status (admin dashboard)
@@ -309,4 +314,83 @@ model OrderItem {
         @@index([orderId]) // Get all items for an order
         @@index([productId]) // Find orders containing a product
         @@map("order_items")
+}
+
+// ============================================
+// COUPONS
+// ============================================
+
+enum CouponType {
+        PERCENTAGE // e.g. 10% off
+        FIXED_AMOUNT // e.g. $20 off
+}
+
+model Coupon {
+        id          String     @id @default(cuid())
+        code        String     @unique // "SUMMER2026" - customer enters this
+        description String? // Internal note for admins
+        type        CouponType // How the discount is calculated
+        value       Decimal    @db.Decimal(10, 2) // 10.00 = 10% or $10 depending on type
+
+        // Rules - all optional, null = no limit
+        minimumOrderAmount Decimal? @map("minimum_order_amount") @db.Decimal(10, 2) // Min cart subtotal
+        maximumDiscount    Decimal? @map("maximum_discount") @db.Decimal(10, 2) // Cap for % coupons
+        usageLimit         Int?     @map("usage_limit") // Total uses allowed
+        usageLimitPerUser  Int?     @map("usage_limit_per_user") // Uses per customer
+        usageCount         Int      @default(0) @map("usage_count") // Current total uses
+
+        // Validity window
+        validFrom  DateTime @map("valid_from")
+        validUntil DateTime @map("valid_until")
+        isActive   Boolean  @default(true) @map("is_active")
+
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        usages CouponUsage[]
+
+        @@map("coupons")
+}
+
+model CouponUsage {
+        id       String @id @default(cuid())
+        couponId String @map("coupon_id")
+        coupon   Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+        userId   String @map("user_id")
+        user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+        orderId  String @unique @map("order_id") // One coupon per order
+        order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+        discountAmount Decimal @map("discount_amount") @db.Decimal(10, 2) // Actual $ saved
+
+        createdAt DateTime @default(now()) @map("created_at")
+
+        @@index([couponId])
+        @@index([userId])
+        @@map("coupon_usages")
+}
+
+// ============================================
+// SHIPPING
+// ============================================
+
+model ShippingMethod {
+        id          String  @id @default(cuid())
+        name        String  @unique // "Standard Shipping", "Express"
+        description String? // "Delivered in 3-5 business days"
+
+        // Pricing
+        basePrice             Decimal  @map("base_price") @db.Decimal(10, 2) // Flat rate cost
+        freeShippingThreshold Decimal? @map("free_shipping_threshold") @db.Decimal(10, 2) // Orders above this = free
+
+        // Display
+        estimatedDays String  @map("estimated_days") // "3-5 business days"
+        sortOrder     Int     @default(0) @map("sort_order")
+        isActive      Boolean @default(true) @map("is_active")
+
+        // Timestamps
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@map("shipping_methods")
 }

@@ -7,6 +7,8 @@ import {
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
 import { ensureUniqueOrderNumber } from '../../common/utils/order-number.util';
+import { CouponsService } from '../coupons/coupons.service';
+import { ShippingService } from '../shipping/shipping.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
@@ -33,6 +35,8 @@ const orderListSelect = {
   orderNumber: true,
   status: true,
   subtotal: true,
+  discountAmount: true,
+  couponCode: true,
   shippingCost: true,
   tax: true,
   total: true,
@@ -51,6 +55,7 @@ const orderDetailSelect = {
   shippingRegion: true,
   shippingPostalCode: true,
   shippingCountry: true,
+  shippingMethodName: true,
   notes: true,
   adminNotes: true,
   items: { select: orderItemSelect },
@@ -75,7 +80,11 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly couponsService: CouponsService,
+    private readonly shippingService: ShippingService,
+  ) {}
 
   // ============================================
   // CUSTOMER METHODS
@@ -144,16 +153,36 @@ export class OrdersService {
       return sum + Number(item.product.price) * item.quantity;
     }, 0);
 
-    const tax = 0; // Will integrate tax calculation later
-    const shippingCost = 0; // Will integrate shipping calculation later
-    const total = subtotal + tax + shippingCost;
+    // 5. Validate and calculate coupon discount (if provided)
+    let couponId: string | null = null;
+    let couponCode: string | null = null;
+    let discountAmount = 0;
 
-    // 5. Generate a unique order number (retry on collision)
+    if (dto.couponCode) {
+      const couponResult = await this.couponsService.validateCoupon(
+        dto.couponCode,
+        userId,
+        subtotal,
+      );
+      couponId = couponResult.couponId;
+      couponCode = dto.couponCode;
+      discountAmount = couponResult.discountAmount;
+    }
+
+    const tax = 0; // Will integrate tax calculation later
+
+    // 6. Calculate shipping cost based on chosen method and subtotal
+    const { shippingCost, methodName: shippingMethodName } =
+      await this.shippingService.calculateShipping(dto.shippingMethodId, subtotal);
+
+    const total = subtotal - discountAmount + shippingCost + tax;
+
+    // 6. Generate a unique order number (retry on collision)
     const orderNumber = await ensureUniqueOrderNumber((num) =>
       this.prisma.order.findUnique({ where: { orderNumber: num }, select: { id: true } }),
     );
 
-    // 6. Create order, order items, reserve stock, and clear cart — all atomically
+    // 7. Create order, order items, reserve stock, and clear cart — all atomically
     const order = await this.prisma.$transaction(async (tx) => {
       // Create the order with address snapshot
       const created = await tx.order.create({
@@ -169,7 +198,10 @@ export class OrdersService {
           shippingPostalCode: address.postalCode,
           shippingCountry: address.country,
           subtotal,
+          discountAmount,
+          couponCode,
           shippingCost,
+          shippingMethodName,
           tax,
           total,
           notes: dto.notes,
@@ -222,6 +254,24 @@ export class OrdersService {
             stockAfter: product.stock,
             userId,
           },
+        });
+      }
+
+      // Record coupon usage (inside transaction for atomicity)
+      if (couponId) {
+        await tx.couponUsage.create({
+          data: {
+            couponId,
+            userId,
+            orderId: created.id,
+            discountAmount,
+          },
+        });
+
+        // Increment the denormalized usage counter
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usageCount: { increment: 1 } },
         });
       }
 

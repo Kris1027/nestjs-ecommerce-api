@@ -115,8 +115,8 @@ export class ReviewsService {
       select: reviewSelect,
     });
 
-    // 5. Recalculate product rating (includes PENDING in count for now,
-    //    but only APPROVED reviews affect the public-facing average)
+    // 5. Recalculate product rating (only APPROVED reviews are included;
+    //    this new PENDING review won't affect the average until approved)
     await this.recalculateRating(productId);
 
     return review;

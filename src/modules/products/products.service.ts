@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { CreateProductDto, UpdateProductDto, ProductQuery } from './dto';
 import {
@@ -8,6 +8,7 @@ import {
 } from '../../common/utils/pagination.util';
 import { generateSlug, ensureUniqueSlug } from '../../common/utils/slug.util';
 import { Prisma } from '../../generated/prisma/client';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 // Fields to return for product listings (without full description)
 const productListSelect = {
@@ -24,7 +25,7 @@ const productListSelect = {
     select: { id: true, name: true, slug: true },
   },
   images: {
-    select: { id: true, url: true, alt: true, sortOrder: true },
+    select: { id: true, url: true, alt: true, cloudinaryPublicId: true, sortOrder: true },
     orderBy: { sortOrder: 'asc' as const },
     take: 1, // Only first image for listings
   },
@@ -49,7 +50,7 @@ const productDetailSelect = {
     select: { id: true, name: true, slug: true },
   },
   images: {
-    select: { id: true, url: true, alt: true, sortOrder: true },
+    select: { id: true, url: true, alt: true, cloudinaryPublicId: true, sortOrder: true },
     orderBy: { sortOrder: 'asc' as const },
   },
 } as const;
@@ -59,7 +60,11 @@ type ProductDetail = Prisma.ProductGetPayload<{ select: typeof productDetailSele
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ProductsService.name);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // ============================================
   // HELPER METHODS
@@ -265,16 +270,31 @@ export class ProductsService {
   async hardDelete(id: string): Promise<{ message: string }> {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        images: { select: { cloudinaryPublicId: true } },
+      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    // Collect Cloudinary public IDs before cascade delete removes the records
+    const publicIds = product.images
+      .map((img) => img.cloudinaryPublicId)
+      .filter((id): id is string => id !== null);
+
     await this.prisma.product.delete({
       where: { id },
     });
+
+    // Batch delete from Cloudinary after DB cascade (best-effort)
+    if (publicIds.length > 0) {
+      await this.cloudinaryService.deleteImages(publicIds).catch((error) => {
+        this.logger.error('Failed to batch-delete Cloudinary images', error);
+      });
+    }
 
     return { message: 'Product permanently deleted' };
   }
@@ -308,10 +328,61 @@ export class ProductsService {
     return this.findById(productId);
   }
 
+  async uploadImage(
+    productId: string,
+    file: Express.Multer.File,
+    alt?: string,
+  ): Promise<ProductDetail> {
+    // Verify product exists and get current image count for sortOrder
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, _count: { select: { images: true } } },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Track Cloudinary result for cleanup if DB write fails
+    let cloudinaryResult: { url: string; publicId: string } | null = null;
+
+    try {
+      // Step 1: Upload to Cloudinary
+      cloudinaryResult = await this.cloudinaryService.uploadImage(file.buffer, 'products');
+
+      // Step 2: Save URL + publicId to database
+      await this.prisma.productImage.create({
+        data: {
+          productId,
+          url: cloudinaryResult.url,
+          cloudinaryPublicId: cloudinaryResult.publicId,
+          alt,
+          sortOrder: product._count.images, // Add at end
+        },
+      });
+
+      return await this.findById(productId);
+    } catch (error) {
+      // Cleanup: if Cloudinary upload succeeded but DB write failed,
+      // delete the orphaned Cloudinary asset
+      if (cloudinaryResult?.publicId) {
+        await this.cloudinaryService
+          .deleteImage(cloudinaryResult.publicId)
+          .catch((cleanupError) => {
+            this.logger.error(
+              `Failed to cleanup Cloudinary image ${cloudinaryResult!.publicId} after DB error`,
+              cleanupError,
+            );
+          });
+      }
+      throw error;
+    }
+  }
+
   async removeImage(productId: string, imageId: string): Promise<ProductDetail> {
     const image = await this.prisma.productImage.findUnique({
       where: { id: imageId },
-      select: { id: true, productId: true },
+      select: { id: true, productId: true, cloudinaryPublicId: true },
     });
 
     if (!image) {
@@ -325,6 +396,13 @@ export class ProductsService {
     await this.prisma.productImage.delete({
       where: { id: imageId },
     });
+
+    // Clean up Cloudinary asset (skip for legacy URL-only images)
+    if (image.cloudinaryPublicId) {
+      await this.cloudinaryService.deleteImage(image.cloudinaryPublicId).catch((error) => {
+        this.logger.error(`Failed to delete Cloudinary image ${image.cloudinaryPublicId}`, error);
+      });
+    }
 
     return this.findById(productId);
   }

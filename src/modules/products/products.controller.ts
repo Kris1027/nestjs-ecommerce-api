@@ -6,13 +6,19 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { ProductsService } from './products.service';
 import { Public, Roles } from '../../common/decorators';
-import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dto';
+import { CreateProductDto, UpdateProductDto, ProductQueryDto, UploadImageDto } from './dto';
+import { multerConfig } from '../cloudinary/multer.config';
 
 @Controller('products')
 export class ProductsController {
@@ -77,6 +83,31 @@ export class ProductsController {
     @Body() imageData: { url: string; alt?: string },
   ): ReturnType<ProductsService['addImage']> {
     return this.productsService.addImage(productId, imageData);
+  }
+
+  @Post(':id/images/upload')
+  @Roles('ADMIN')
+  @Throttle({
+    short: { limit: 1, ttl: 1000 }, // max 1 upload per second
+    medium: { limit: 5, ttl: 10000 }, // max 5 uploads per 10 seconds
+    long: { limit: 10, ttl: 60000 }, // max 10 uploads per minute
+  })
+  @UseInterceptors(FileInterceptor('file', multerConfig))
+  uploadImage(
+    @Param('id') productId: string,
+    @Body() dto: UploadImageDto,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: /image\/(jpeg|png|webp)/ })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+          fileIsRequired: true,
+        }),
+    )
+    file: Express.Multer.File,
+  ): ReturnType<ProductsService['uploadImage']> {
+    return this.productsService.uploadImage(productId, file, dto.alt);
   }
 
   @Delete(':id/images/:imageId')

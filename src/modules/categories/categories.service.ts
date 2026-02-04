@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import type { CreateCategoryDto, UpdateCategoryDto } from './dto';
@@ -9,6 +9,7 @@ import {
 } from '../../common/utils/pagination.util';
 import { generateSlug, ensureUniqueSlug } from '../../common/utils/slug.util';
 import type { PaginationQuery } from '../../common/dto/pagination.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 const categorySelect = {
   id: true,
@@ -16,6 +17,7 @@ const categorySelect = {
   slug: true,
   description: true,
   imageUrl: true,
+  cloudinaryPublicId: true,
   parentId: true,
   isActive: true,
   sortOrder: true,
@@ -31,7 +33,12 @@ type CategoryWithChildren = CategoryResponse & {
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CategoriesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // ============================================
   // HELPER METHODS
@@ -206,7 +213,7 @@ export class CategoriesService {
   async hardDelete(id: string): Promise<{ message: string }> {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, cloudinaryPublicId: true },
     });
 
     if (!category) {
@@ -217,6 +224,69 @@ export class CategoriesService {
       where: { id },
     });
 
+    // Clean up Cloudinary image (skip for legacy URL-only images)
+    if (category.cloudinaryPublicId) {
+      await this.cloudinaryService.deleteImage(category.cloudinaryPublicId).catch((error) => {
+        this.logger.error(
+          `Failed to delete Cloudinary image ${category.cloudinaryPublicId}`,
+          error,
+        );
+      });
+    }
+
     return { message: 'Category permanently deleted' };
+  }
+  async uploadImage(id: string, file: Express.Multer.File): Promise<CategoryResponse> {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      select: { id: true, cloudinaryPublicId: true },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    // Track for cleanup if DB write fails
+    let cloudinaryResult: { url: string; publicId: string } | null = null;
+
+    try {
+      // Step 1: Upload new image to Cloudinary
+      cloudinaryResult = await this.cloudinaryService.uploadImage(file.buffer, 'categories');
+
+      // Step 2: Update category with new image URL + publicId
+      const updated = await this.prisma.category.update({
+        where: { id },
+        data: {
+          imageUrl: cloudinaryResult.url,
+          cloudinaryPublicId: cloudinaryResult.publicId,
+        },
+        select: categorySelect,
+      });
+
+      // Step 3: Delete old Cloudinary image after successful DB update
+      if (category.cloudinaryPublicId) {
+        await this.cloudinaryService.deleteImage(category.cloudinaryPublicId).catch((error) => {
+          this.logger.error(
+            `Failed to delete old Cloudinary image ${category.cloudinaryPublicId}`,
+            error,
+          );
+        });
+      }
+
+      return updated;
+    } catch (error) {
+      // Cleanup: delete new Cloudinary image if DB update failed
+      if (cloudinaryResult?.publicId) {
+        await this.cloudinaryService
+          .deleteImage(cloudinaryResult.publicId)
+          .catch((cleanupError) => {
+            this.logger.error(
+              `Failed to cleanup Cloudinary image ${cloudinaryResult!.publicId} after DB error`,
+              cleanupError,
+            );
+          });
+      }
+      throw error;
+    }
   }
 }

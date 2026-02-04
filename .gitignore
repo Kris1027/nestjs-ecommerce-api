@@ -60,7 +60,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 postman
 .claude
 .mcp*
-IMPLEMENTATION_PLAN*
+implementation-docs/
 
 # Prisma generated client
 src/generated

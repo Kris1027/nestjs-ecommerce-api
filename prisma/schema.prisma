@@ -266,6 +266,7 @@ model Order {
         shippingRegion     String? @map("shipping_region")
         shippingPostalCode String  @map("shipping_postal_code")
         shippingCountry    String  @map("shipping_country")
+        shippingMethodName String? @map("shipping_method_name")
 
         // Money fields - Decimal avoids floating point errors (e.g., 0.1 + 0.2 !== 0.3)
         subtotal       Decimal @db.Decimal(10, 2) // Sum of all lines total
@@ -367,4 +368,29 @@ model CouponUsage {
         @@index([couponId])
         @@index([userId])
         @@map("coupon_usages")
+}
+
+// ============================================
+// SHIPPING
+// ============================================
+
+model ShippingMethod {
+        id          String  @id @default(cuid())
+        name        String  @unique // "Standard Shipping", "Express"
+        description String? // "Delivered in 3-5 business days"
+
+        // Pricing
+        basePrice             Decimal  @map("base_price") @db.Decimal(10, 2) // Flat rate cost
+        freeShippingThreshold Decimal? @map("free_shipping_threshold") @db.Decimal(10, 2) // Orders above this = free
+
+        // Display
+        estimatedDays String  @map("estimated_days") // "3-5 business days"
+        sortOrder     Int     @default(0) @map("sort_order")
+        isActive      Boolean @default(true) @map("is_active")
+
+        // Timestamps
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@map("shipping_methods")
 }

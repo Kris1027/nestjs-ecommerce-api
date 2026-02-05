@@ -29,12 +29,14 @@ model User {
         createdAt DateTime @default(now()) @map("created_at")
         updatedAt DateTime @updatedAt @map("updated_at")
 
-        refreshTokens RefreshToken[]
-        addresses     Address[]
-        cart          Cart?
-        orders        Order[]
-        couponUsages  CouponUsage[]
-        reviews       Review[]
+        refreshTokens           RefreshToken[]
+        addresses               Address[]
+        cart                    Cart?
+        orders                  Order[]
+        couponUsages            CouponUsage[]
+        reviews                 Review[]
+        notifications           Notification[]
+        notificationPreferences NotificationPreference[]
 
         @@map("users")
 }
@@ -488,4 +490,61 @@ model WebhookEvent {
         processedAt DateTime @default(now()) @map("processed_at")
 
         @@map("webhook_events")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+        ORDER_CREATED // New order placed
+        ORDER_CONFIRMED // Payment received, order confirmed
+        ORDER_SHIPPED // Handed to carrier
+        ORDER_DELIVERED // Customer received it
+        ORDER_CANCELLED // Cancelled by customer or admin
+        PAYMENT_SUCCEEDED // Stripe payment confirmed
+        PAYMENT_FAILED // Stripe payment declined
+        REFUND_INITIATED // Admin started refund
+        REFUND_COMPLETED // Refund confirmed by Stripe
+        REFUND_FAILED // Refund failed
+        LOW_STOCK // Product below threshold (admin only)
+        WELCOME // New user registration
+        PASSWORD_CHANGED // Password updated
+}
+
+enum NotificationChannel {
+        IN_APP // Stored in DB, shown in UI
+        EMAIL // Sent via Resend
+}
+
+model Notification {
+        id          String           @id @default(cuid())
+        userId      String           @map("user_id")
+        user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+        type        NotificationType
+        title       String
+        body        String
+        referenceId String?          @map("reference_id") // Polymorphic: orderId, paymentId, etc.
+        isRead      Boolean          @default(false) @map("is_read")
+        createdAt   DateTime         @default(now()) @map("created_at")
+
+        @@index([userId, isRead]) // Unread notifications for a user
+        @@index([userId, createdAt]) // Paginated listing sorted by date
+        @@index([type, referenceId]) // Idempotency check (prevent duplicates)
+        @@map("notifications")
+}
+
+// Opt-out model: no records = all notifications enabled.
+// Users only create records to disable specific type+channel combos.
+model NotificationPreference {
+        id      String              @id @default(cuid())
+        userId  String              @map("user_id")
+        user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+        type    NotificationType
+        channel NotificationChannel
+        enabled Boolean             @default(true)
+
+        @@unique([userId, type, channel]) // One preference per user per type per channel
+        @@index([userId])
+        @@map("notification_preferences")
 }

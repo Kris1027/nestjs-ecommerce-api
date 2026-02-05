@@ -38,7 +38,10 @@ export class EmailService {
         // Resend returns errors in response body (not as thrown exceptions)
         // We must check and throw to trigger retry logic
         if (error) {
-          throw new Error(`Resend API error: ${error.name} - ${error.message}`);
+          const err = new Error(`Resend API error: ${error.name} - ${error.message}`);
+          // Attach the error name so retry logic can check retryable types
+          (err as Error & { resendErrorName: string }).resendErrorName = error.name;
+          throw err;
         }
       });
 
@@ -81,11 +84,14 @@ export class EmailService {
       try {
         return await fn();
       } catch (error: unknown) {
-        // Check if error is retryable (rate limit or server error)
-        const isRateLimit = error instanceof Error && error.message.includes('rate');
-        const isServerError = error instanceof Error && error.message.includes('5');
-
-        const isRetryable = isRateLimit || isServerError;
+        // Only retry on rate limits (429) and server errors (500)
+        // Resend error names: "rate_limit_exceeded", "internal_server_error"
+        const resendErrorName =
+          error instanceof Error
+            ? (error as Error & { resendErrorName?: string }).resendErrorName
+            : undefined;
+        const isRetryable =
+          resendErrorName === 'rate_limit_exceeded' || resendErrorName === 'internal_server_error';
 
         if (attempt === maxRetries || !isRetryable) {
           throw error; // Final attempt or non-retryable — propagate to send() catch

@@ -368,16 +368,6 @@ export class OrdersService {
   }
 
   async cancelOrder(orderId: string, userId: string): Promise<OrderDetailPayload> {
-    // Fetch user for notification event
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -386,6 +376,7 @@ export class OrdersService {
         status: true,
         orderNumber: true,
         items: { select: { productId: true, quantity: true } },
+        user: { select: { email: true, firstName: true } },
       },
     });
 
@@ -470,8 +461,8 @@ export class OrdersService {
       NotificationEvents.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(
         userId,
-        user.email,
-        user.firstName,
+        order.user.email,
+        order.user.firstName,
         orderId,
         order.orderNumber,
         'CANCELLED',
@@ -527,18 +518,13 @@ export class OrdersService {
         status: true,
         orderNumber: true,
         items: { select: { productId: true, quantity: true } },
+        user: { select: { email: true, firstName: true } },
       },
     });
 
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-
-    // Fetch user for notification event
-    const user = await this.prisma.user.findUnique({
-      where: { id: order.userId },
-      select: { email: true, firstName: true },
-    });
 
     // Validate the status transition
     const newStatus = dto.status as OrderStatus;
@@ -656,19 +642,17 @@ export class OrdersService {
     });
 
     // Emit event for status change notification (after transaction commits)
-    if (user) {
-      this.eventEmitter.emit(
-        NotificationEvents.ORDER_STATUS_CHANGED,
-        new OrderStatusChangedEvent(
-          order.userId,
-          user.email,
-          user.firstName,
-          orderId,
-          order.orderNumber,
-          newStatus,
-        ),
-      );
-    }
+    this.eventEmitter.emit(
+      NotificationEvents.ORDER_STATUS_CHANGED,
+      new OrderStatusChangedEvent(
+        order.userId,
+        order.user.email,
+        order.user.firstName,
+        orderId,
+        order.orderNumber,
+        newStatus,
+      ),
+    );
 
     return updated;
   }

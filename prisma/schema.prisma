@@ -291,6 +291,7 @@ model Order {
         createdAt   DateTime     @default(now()) @map("created_at")
         updatedAt   DateTime     @updatedAt @map("updated_at")
         couponUsage CouponUsage?
+        payment     Payment?
 
         @@index([userId]) // Find all orders for a user
         @@index([status]) // Filter orders by status (admin dashboard)
@@ -436,4 +437,55 @@ model Review {
         @@index([userId]) // Get all reviews by a user
         @@index([status]) // Filter by moderation status
         @@map("reviews")
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+enum PaymentStatus {
+        PENDING // Intent created, awaiting customer action
+        SUCCEEDED // Payment confirmed by Stripe
+        FAILED // Payment declined or failed
+        REFUND_PENDING // Refund initiated, awaiting Stripe confirmation
+        REFUNDED // Fully refunded (confirmed by webhook)
+        PARTIALLY_REFUNDED // Partially refunded (confirmed by webhook)
+}
+
+model Payment {
+        id                    String        @id @default(cuid())
+        orderId               String        @unique @map("order_id")
+        order                 Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+        stripePaymentIntentId String        @unique @map("stripe_payment_intent_id")
+        status                PaymentStatus @default(PENDING)
+        amount                Decimal       @db.Decimal(10, 2)
+        currency              String        @default("pln")
+
+        // Refund tracking
+        refundedAmount Decimal @default(0) @map("refunded_amount") @db.Decimal(10, 2)
+        stripeRefundId String? @map("stripe_refund_id")
+        refundReason   String? @map("refund_reason")
+
+        // Failure tracking (populated from Stripe on failure)
+        failureCode    String? @map("failure_code")
+        failureMessage String? @map("failure_message")
+
+        createdAt DateTime @default(now()) @map("created_at")
+        updatedAt DateTime @updatedAt @map("updated_at")
+
+        @@index([orderId])
+        @@index([stripePaymentIntentId])
+        @@index([status])
+        @@index([createdAt]) // For abandoned payment cleanup queries
+        @@map("payments")
+}
+
+// Tracks processed webhook events to prevent duplicate processing.
+// Stripe can deliver the same event multiple times (5-10% retry rate).
+model WebhookEvent {
+        id          String   @id // Use Stripe event ID (evt_xxx) as PK — no cuid()
+        type        String // e.g., "payment_intent.succeeded"
+        processedAt DateTime @default(now()) @map("processed_at")
+
+        @@map("webhook_events")
 }

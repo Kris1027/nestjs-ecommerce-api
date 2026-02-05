@@ -26,6 +26,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       exclude: [{ method: RequestMethod.ALL, path: 'health' }],
     }),
     PrismaModule,
+    EventEmitterModule.forRoot(),
     AuthModule,
     UsersModule,
     CategoriesModule,

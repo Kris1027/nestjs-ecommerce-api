@@ -1,4 +1,6 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { AppModule } from './app.module';
 import { env } from './config/env.validation';
 import { Logger } from 'nestjs-pino';
@@ -19,6 +21,25 @@ async function bootstrap(): Promise<void> {
   });
 
   app.use(compression());
+
+  // Swagger setup — only available in development/test
+  if (env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('NestJS Ecommerce API')
+      .setDescription('Single-vendor ecommerce backend API')
+      .setVersion('1.0')
+      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    const cleanedDocument = cleanupOpenApiDoc(document);
+
+    SwaggerModule.setup('docs', app, cleanedDocument, {
+      customSiteTitle: 'Ecommerce API Docs',
+      jsonDocumentUrl: '/docs-json',
+      yamlDocumentUrl: '/docs-yaml',
+    });
+  }
 
   await app.listen(env.PORT);
 }

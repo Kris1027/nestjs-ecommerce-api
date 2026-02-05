@@ -51,6 +51,7 @@ export class CategoriesController {
   @Public()
   @ApiOperation({ summary: 'Get category tree hierarchy (public)' })
   @ApiSuccessResponse(CategoryResponseDto)
+  @ApiErrorResponses(429)
   findAllTree(): ReturnType<CategoriesService['findAllTree']> {
     return this.categoriesService.findAllTree();
   }

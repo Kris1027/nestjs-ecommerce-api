@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { AuthService, type TokenResponse } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, TokenResponseDto } from './dto';
 import { Public } from '../../common/decorators';
+import { MessageResponseDto } from '../users/dto';
 import { ApiSuccessResponse, ApiErrorResponses } from '../../common/swagger';
 
 @ApiTags('Auth')
@@ -50,8 +51,8 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Invalidate a refresh token' })
-  @ApiSuccessResponse(TokenResponseDto, 200, 'Logged out successfully')
-  @ApiErrorResponses(400, 401, 429)
+  @ApiSuccessResponse(MessageResponseDto, 200, 'Logged out successfully')
+  @ApiErrorResponses(400, 429)
   async logout(@Body() dto: RefreshTokenDto): Promise<{ message: string }> {
     await this.authService.logout(dto.refreshToken);
     return { message: 'Logged out successfully' };

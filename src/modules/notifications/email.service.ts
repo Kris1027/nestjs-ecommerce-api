@@ -47,8 +47,7 @@ export class EmailService {
     } catch (error: unknown) {
       // NEVER throw — log and return false so business logic continues
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to send email to ${to}: "${subject}" —
-  ${message}`);
+      this.logger.error(`Failed to send email to ${to}: "${subject}" — ${message}`);
       return false;
     }
   }
@@ -70,8 +69,7 @@ export class EmailService {
     const failed = results.filter((r) => r.status === 'rejected');
     if (failed.length > 0) {
       this.logger.warn(
-        `Batch email: ${failed.length}/${recipients.length} failed for
-  "${subject}"`,
+        `Batch email: ${failed.length}/${recipients.length} failed for "${subject}"`,
       );
     }
   }
@@ -96,8 +94,7 @@ export class EmailService {
         // Exponential backoff: 2s, 4s, 8s + random jitter (0-500ms)
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
         this.logger.warn(
-          `Email attempt ${attempt}/${maxRetries} failed, retrying in
-  ${Math.round(delay)}ms...`,
+          `Email attempt ${attempt}/${maxRetries} failed, retrying in ${Math.round(delay)}ms...`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       }

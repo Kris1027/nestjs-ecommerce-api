@@ -15,6 +15,8 @@ import {
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
 import type { PaginationQuery } from '../../common/dto/pagination.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationEvents, PasswordChangedEvent } from '../notifications/events';
 
 const profileSelect = {
   id: true,
@@ -50,7 +52,10 @@ type UserAddress = Prisma.AddressGetPayload<{ select: typeof addressSelect }>;
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   // ============================================
   // USER METHODS
@@ -93,7 +98,7 @@ export class UsersService {
   ): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, password: true },
+      select: { id: true, password: true, email: true, firstName: true },
     });
 
     if (!user) {
@@ -110,6 +115,12 @@ export class UsersService {
       where: { id: userId },
       data: { password: hashedPassword },
     });
+
+    // Emit event for password change notification
+    this.eventEmitter.emit(
+      NotificationEvents.PASSWORD_CHANGED,
+      new PasswordChangedEvent(userId, user.email, user.firstName),
+    );
 
     return { message: 'Password changed successfully' };
   }

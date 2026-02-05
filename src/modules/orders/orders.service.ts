@@ -12,6 +12,12 @@ import { ShippingService } from '../shipping/shipping.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  NotificationEvents,
+  OrderCreatedEvent,
+  OrderStatusChangedEvent,
+} from '../notifications/events';
 
 // ============================================
 // SELECT OBJECTS & TYPES
@@ -84,6 +90,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
     private readonly shippingService: ShippingService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ============================================
@@ -91,6 +98,16 @@ export class OrdersService {
   // ============================================
 
   async checkout(userId: string, dto: CreateOrderDto): Promise<OrderDetailPayload> {
+    // Fetch user for notification event
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     // 1. Fetch the user's cart with product details
     const cart = await this.prisma.cart.findUnique({
       where: { userId },
@@ -281,6 +298,19 @@ export class OrdersService {
       return created;
     });
 
+    // Emit event for order notification (non-blocking)
+    this.eventEmitter.emit(
+      NotificationEvents.ORDER_CREATED,
+      new OrderCreatedEvent(
+        userId,
+        user.email,
+        user.firstName,
+        order.id,
+        order.orderNumber,
+        order.total.toString(),
+      ),
+    );
+
     return order;
   }
 
@@ -346,6 +376,7 @@ export class OrdersService {
         status: true,
         orderNumber: true,
         items: { select: { productId: true, quantity: true } },
+        user: { select: { email: true, firstName: true } },
       },
     });
 
@@ -425,6 +456,19 @@ export class OrdersService {
       return cancelled;
     });
 
+    // Emit event for cancellation notification
+    this.eventEmitter.emit(
+      NotificationEvents.ORDER_STATUS_CHANGED,
+      new OrderStatusChangedEvent(
+        userId,
+        order.user.email,
+        order.user.firstName,
+        orderId,
+        order.orderNumber,
+        'CANCELLED',
+      ),
+    );
+
     return updated;
   }
 
@@ -470,9 +514,11 @@ export class OrdersService {
       where: { id: orderId },
       select: {
         id: true,
+        userId: true,
         status: true,
         orderNumber: true,
         items: { select: { productId: true, quantity: true } },
+        user: { select: { email: true, firstName: true } },
       },
     });
 
@@ -491,7 +537,7 @@ export class OrdersService {
     }
 
     // Update status + stock operations atomically in one transaction
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       // If confirming the order, convert reservations to actual sales
       if (newStatus === OrderStatus.CONFIRMED) {
         for (const item of order.items) {
@@ -594,5 +640,20 @@ export class OrdersService {
         select: orderDetailSelect,
       });
     });
+
+    // Emit event for status change notification (after transaction commits)
+    this.eventEmitter.emit(
+      NotificationEvents.ORDER_STATUS_CHANGED,
+      new OrderStatusChangedEvent(
+        order.userId,
+        order.user.email,
+        order.user.firstName,
+        orderId,
+        order.orderNumber,
+        newStatus,
+      ),
+    );
+
+    return updated;
   }
 }

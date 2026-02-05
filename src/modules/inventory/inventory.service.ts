@@ -7,6 +7,8 @@ import {
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
 import type { PaginationQuery } from '../../common/dto/pagination.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationEvents, LowStockEvent } from '../notifications/events';
 
 // Select for stock info response
 const stockInfoSelect = {
@@ -46,7 +48,10 @@ type StockOperationResult = {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   // ============================================
   // PUBLIC METHODS
@@ -112,7 +117,7 @@ export class InventoryService {
     userId?: string,
     reason?: string,
   ): Promise<StockOperationResult> {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: productId },
         select: { id: true, stock: true },
@@ -162,6 +167,21 @@ export class InventoryService {
         movement,
       };
     });
+
+    // Check if stock dropped below threshold — emit event for admin notification
+    if (result.product.isLowStock) {
+      this.eventEmitter.emit(
+        NotificationEvents.LOW_STOCK,
+        new LowStockEvent(
+          productId,
+          result.product.name,
+          result.product.availableStock,
+          result.product.lowStockThreshold,
+        ),
+      );
+    }
+
+    return result;
   }
 
   async getLowStockProducts(query: PaginationQuery): Promise<PaginatedResult<StockInfo>> {

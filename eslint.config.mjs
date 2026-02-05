@@ -66,9 +66,9 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
-  // Override for service files using Prisma (adapter causes type inference issues)
+  // Override for files using Prisma types (adapter causes type inference issues)
   {
-    files: ['src/**/*.service.ts'],
+    files: ['src/**/*.service.ts', 'src/**/*.listener.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

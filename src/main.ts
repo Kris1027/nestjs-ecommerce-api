@@ -28,7 +28,15 @@ async function bootstrap(): Promise<void> {
       .setTitle('NestJS Ecommerce API')
       .setDescription('Single-vendor ecommerce backend API')
       .setVersion('1.0')
-      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter JWT access token (15m expiry)',
+        },
+        'access-token',
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

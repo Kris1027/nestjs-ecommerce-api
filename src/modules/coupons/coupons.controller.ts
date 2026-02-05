@@ -10,7 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CouponsService } from './coupons.service';
 import { Roles, CurrentUser } from '../../common/decorators';
 import {
@@ -79,6 +79,24 @@ export class CouponsController {
   @Roles('ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'List all coupons with filters (admin)' })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    enum: ['true', 'false'],
+    description: 'Filter by active status',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['PERCENTAGE', 'FIXED_AMOUNT'],
+    description: 'Filter by coupon type',
+  })
+  @ApiQuery({
+    name: 'validNow',
+    required: false,
+    enum: ['true', 'false'],
+    description: 'Filter coupons valid at the current time',
+  })
   @ApiPaginatedResponse(CouponDto, 'Paginated coupon list')
   @ApiErrorResponses(401, 403, 429)
   findAll(@Query() query: CouponQueryDto): ReturnType<CouponsService['findAll']> {

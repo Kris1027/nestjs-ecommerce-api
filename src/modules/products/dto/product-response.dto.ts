@@ -21,7 +21,10 @@ export class ProductImageDto {
   @ApiPropertyOptional({ example: 'Product front view' })
   alt: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Cloudinary public ID for image management',
+    example: 'products/clxyz123abc456',
+  })
   cloudinaryPublicId: string | null;
 
   @ApiProperty({ example: 0 })

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { Public, Roles, CurrentUser } from '../../common/decorators';
 import {
@@ -25,6 +25,12 @@ export class ReviewsController {
   @Public()
   @ApiOperation({ summary: 'List approved reviews for a product' })
   @ApiParam({ name: 'productId', description: 'Product CUID' })
+  @ApiQuery({
+    name: 'rating',
+    required: false,
+    type: Number,
+    description: 'Filter by star rating (1-5)',
+  })
   @ApiPaginatedResponse(ReviewDto, 'Paginated approved reviews')
   @ApiErrorResponses(404, 429)
   findByProduct(
@@ -87,6 +93,18 @@ export class ReviewsController {
   @Roles('ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'List all reviews with filters (admin)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+    description: 'Filter by moderation status',
+  })
+  @ApiQuery({
+    name: 'rating',
+    required: false,
+    type: Number,
+    description: 'Filter by star rating (1-5)',
+  })
   @ApiPaginatedResponse(ReviewDto, 'Paginated review list')
   @ApiErrorResponses(401, 403, 429)
   findAll(@Query() query: ReviewQueryDto): ReturnType<ReviewsService['findAll']> {

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Put, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser, Roles } from '../../common/decorators';
 import {
@@ -29,6 +29,32 @@ export class NotificationsController {
   // List my notifications (paginated, filterable by isRead and type)
   @Get()
   @ApiOperation({ summary: 'List my notifications' })
+  @ApiQuery({
+    name: 'isRead',
+    required: false,
+    enum: ['true', 'false'],
+    description: 'Filter by read/unread status',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: [
+      'ORDER_CREATED',
+      'ORDER_CONFIRMED',
+      'ORDER_SHIPPED',
+      'ORDER_DELIVERED',
+      'ORDER_CANCELLED',
+      'PAYMENT_SUCCEEDED',
+      'PAYMENT_FAILED',
+      'REFUND_INITIATED',
+      'REFUND_COMPLETED',
+      'REFUND_FAILED',
+      'LOW_STOCK',
+      'WELCOME',
+      'PASSWORD_CHANGED',
+    ],
+    description: 'Filter by notification type',
+  })
   @ApiPaginatedResponse(NotificationDto, 'Paginated notification list')
   @ApiErrorResponses(401, 429)
   findUserNotifications(
@@ -104,6 +130,32 @@ export class NotificationsController {
   @Get('admin')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'List all notifications across all users (admin)' })
+  @ApiQuery({
+    name: 'isRead',
+    required: false,
+    enum: ['true', 'false'],
+    description: 'Filter by read/unread status',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: [
+      'ORDER_CREATED',
+      'ORDER_CONFIRMED',
+      'ORDER_SHIPPED',
+      'ORDER_DELIVERED',
+      'ORDER_CANCELLED',
+      'PAYMENT_SUCCEEDED',
+      'PAYMENT_FAILED',
+      'REFUND_INITIATED',
+      'REFUND_COMPLETED',
+      'REFUND_FAILED',
+      'LOW_STOCK',
+      'WELCOME',
+      'PASSWORD_CHANGED',
+    ],
+    description: 'Filter by notification type',
+  })
   @ApiPaginatedResponse(NotificationDto, 'Paginated notification list')
   @ApiErrorResponses(401, 403, 429)
   findAll(@Query() query: NotificationQueryDto): ReturnType<NotificationsService['findAll']> {

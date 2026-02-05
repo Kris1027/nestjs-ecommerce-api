@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CurrentUser, Roles } from '../../common/decorators';
 import {
@@ -45,6 +45,24 @@ export class OrdersController {
 
   @Get('my')
   @ApiOperation({ summary: 'List current user orders' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+    description: 'Filter by order status',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description: 'Start of date range (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'End of date range (ISO 8601)',
+  })
   @ApiPaginatedResponse(OrderListDto, 'Paginated order list')
   @ApiErrorResponses(401, 429)
   getMyOrders(
@@ -86,6 +104,24 @@ export class OrdersController {
   @Get()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'List all orders (admin)' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+    description: 'Filter by order status',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description: 'Start of date range (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'End of date range (ISO 8601)',
+  })
   @ApiPaginatedResponse(OrderListDto, 'Paginated order list')
   @ApiErrorResponses(401, 403, 429)
   getAllOrders(@Query() query: OrderQueryDto): ReturnType<OrdersService['getAllOrders']> {

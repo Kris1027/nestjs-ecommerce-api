@@ -15,6 +15,8 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().startsWith('sk_'),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_'),
+  RESEND_API_KEY: z.string().startsWith('re_'),
+  EMAIL_FROM: z.email().default('onboarding@resend.dev'),
 });
 
 export type Env = z.infer<typeof envSchema>;

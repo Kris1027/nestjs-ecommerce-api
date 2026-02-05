@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Env } from '../../config/env.validation';
 import { RegisterDto, LoginDto } from './dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationEvents, UserRegisteredEvent } from '../notifications/events';
 
 interface JwtPayload {
   sub: string;
@@ -27,6 +29,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<Env, true>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ============================================
@@ -125,6 +128,12 @@ export class AuthService {
         expiresAt: this.getRefreshTokenExpiry(),
       },
     });
+
+    // Emit event for welcome notification (non-blocking, listeners run async)
+    this.eventEmitter.emit(
+      NotificationEvents.USER_REGISTERED,
+      new UserRegisteredEvent(user.id, user.email, user.firstName),
+    );
 
     return { accessToken, refreshToken };
   }

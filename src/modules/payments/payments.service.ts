@@ -15,6 +15,14 @@ import { STRIPE } from './payments.provider';
 import type { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import type { RefundDto } from './dto/refund.dto';
 import type { PaymentQuery } from './dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  NotificationEvents,
+  PaymentSucceededEvent,
+  PaymentFailedEvent,
+  RefundCompletedEvent,
+  RefundFailedEvent,
+} from '../notifications/events';
 
 // ============================================
 // SELECT OBJECTS & TYPES
@@ -64,6 +72,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     @Inject(STRIPE) private readonly stripe: Stripe,
     private readonly ordersService: OrdersService,
+    private readonly eventEmitter: EventEmitter2,
     configService: ConfigService<Env, true>,
   ) {
     // Read webhook secret once at startup — never changes at runtime
@@ -265,6 +274,29 @@ export class PaymentsService {
       data: { status: PaymentStatus.SUCCEEDED },
     });
 
+    const order = await this.prisma.order.findUnique({
+      where: { id: payment.orderId },
+      select: {
+        orderNumber: true,
+        userId: true,
+        user: { select: { email: true, firstName: true } },
+      },
+    });
+
+    if (order) {
+      this.eventEmitter.emit(
+        NotificationEvents.PAYMENT_SUCCEEDED,
+        new PaymentSucceededEvent(
+          order.userId,
+          order.user.email,
+          order.user.firstName,
+          payment.orderId,
+          order.orderNumber,
+          String(payment.amount),
+        ),
+      );
+    }
+
     // Confirm the order — triggers stock reservation → sale conversion
     await this.ordersService.updateOrderStatus(payment.orderId, {
       status: 'CONFIRMED',
@@ -300,6 +332,29 @@ export class PaymentsService {
         failureMessage: lastError?.message ?? null,
       },
     });
+
+    // Fetch user + order for notification
+    const order = await this.prisma.order.findUnique({
+      where: { id: payment.orderId },
+      select: {
+        orderNumber: true,
+        userId: true,
+        user: { select: { email: true, firstName: true } },
+      },
+    });
+
+    if (order) {
+      this.eventEmitter.emit(
+        NotificationEvents.PAYMENT_FAILED,
+        new PaymentFailedEvent(
+          order.userId,
+          order.user.email,
+          order.user.firstName,
+          payment.orderId,
+          order.orderNumber,
+        ),
+      );
+    }
 
     this.logger.warn(
       `Payment ${payment.id} failed: ${lastError?.code ?? 'unknown'} - ${lastError?.message ?? 'no details'}`,
@@ -369,6 +424,30 @@ export class PaymentsService {
       this.logger.log(
         `Refund ${refund.id} succeeded: ${refundedAmount} PLN (total: ${totalRefunded} PLN)`,
       );
+
+      // Notify user about successful refund
+      const order = await this.prisma.order.findUnique({
+        where: { id: payment.orderId },
+        select: {
+          orderNumber: true,
+          userId: true,
+          user: { select: { email: true, firstName: true } },
+        },
+      });
+
+      if (order) {
+        this.eventEmitter.emit(
+          NotificationEvents.REFUND_COMPLETED,
+          new RefundCompletedEvent(
+            order.userId,
+            order.user.email,
+            order.user.firstName,
+            payment.orderId,
+            order.orderNumber,
+            String(refundedAmount),
+          ),
+        );
+      }
     } else if (refund.status === 'failed') {
       // Revert from REFUND_PENDING back to SUCCEEDED — manual resolution needed
       if (payment.status === PaymentStatus.REFUND_PENDING) {
@@ -379,6 +458,29 @@ export class PaymentsService {
 
         this.logger.error(
           `Refund ${refund.id} failed for payment ${payment.id}. Reverted to SUCCEEDED. Manual resolution needed.`,
+        );
+      }
+
+      // Notify user about failed refund
+      const failedOrder = await this.prisma.order.findUnique({
+        where: { id: payment.orderId },
+        select: {
+          orderNumber: true,
+          userId: true,
+          user: { select: { email: true, firstName: true } },
+        },
+      });
+
+      if (failedOrder) {
+        this.eventEmitter.emit(
+          NotificationEvents.REFUND_FAILED,
+          new RefundFailedEvent(
+            failedOrder.userId,
+            failedOrder.user.email,
+            failedOrder.user.firstName,
+            payment.orderId,
+            failedOrder.orderNumber,
+          ),
         );
       }
     }

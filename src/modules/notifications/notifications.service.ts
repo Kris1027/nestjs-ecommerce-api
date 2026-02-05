@@ -7,8 +7,7 @@ import {
   type PaginatedResult,
 } from '../../common/utils/pagination.util';
 import { EmailService } from './email.service';
-import type { NotificationQueryDto } from './dto/notification-query.dto';
-import type { UpdatePreferenceDto } from './dto/update-preference.dto';
+import type { NotificationQueryDto, UpdatePreferenceDto } from './dto';
 
 // ============================================
 // SELECT OBJECT & TYPE

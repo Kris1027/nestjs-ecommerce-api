@@ -61,6 +61,7 @@ postman
 .claude
 .mcp*
 implementation-docs/
+CLAUDE.md
 
 # Prisma generated client
 src/generated

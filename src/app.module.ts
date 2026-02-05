@@ -24,6 +24,7 @@ import { CouponsModule } from './modules/coupons/coupons.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     ShippingModule,
     ReviewsModule,
     CloudinaryModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

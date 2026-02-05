@@ -53,6 +53,29 @@ export function ApiPaginatedResponse(
   );
 }
 
+// Wraps an array DTO in the success envelope WITHOUT pagination meta: { success, data: T[], timestamp }
+export function ApiSuccessListResponse(dataDto: Type, description = 'List'): MethodDecorator {
+  return applyDecorators(
+    ApiExtraModels(dataDto),
+    ApiResponse({
+      status: 200,
+      description,
+      schema: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: {
+            type: 'array',
+            items: { $ref: getSchemaPath(dataDto) },
+          },
+          timestamp: { type: 'string', example: '2025-01-15T12:00:00.000Z' },
+        },
+        required: ['success', 'data', 'timestamp'],
+      },
+    }),
+  );
+}
+
 // Adds standard error response schemas for given HTTP status codes
 export function ApiErrorResponses(...codes: number[]): MethodDecorator {
   return applyDecorators(

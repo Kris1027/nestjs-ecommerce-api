@@ -17,6 +17,7 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_'),
   RESEND_API_KEY: z.string().startsWith('re_'),
   EMAIL_FROM: z.email(),
+  FRONTEND_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

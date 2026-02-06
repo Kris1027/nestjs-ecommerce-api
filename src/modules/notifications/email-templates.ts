@@ -43,6 +43,45 @@ export function passwordChangedEmail(firstName: string | null): { subject: strin
   };
 }
 
+export function emailVerificationEmail(
+  firstName: string | null,
+  verifyUrl: string,
+): { subject: string; html: string } {
+  return {
+    subject: 'Verify your email address',
+    html: wrapHtml(
+      'Verify Your Email',
+      `<p>Hi ${firstName ?? 'there'},</p>
+       <p>Please verify your email address by clicking the button below:</p>
+       <p style="margin: 20px 0;">
+         <a href="${verifyUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify Email</a>
+       </p>
+       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${verifyUrl}">${verifyUrl}</a></p>
+       <p style="color: #666; font-size: 14px;">This link expires in 24 hours.</p>`,
+    ),
+  };
+}
+
+export function passwordResetEmail(
+  firstName: string | null,
+  resetUrl: string,
+): { subject: string; html: string } {
+  return {
+    subject: 'Reset your password',
+    html: wrapHtml(
+      'Reset Your Password',
+      `<p>Hi ${firstName ?? 'there'},</p>
+       <p>We received a request to reset your password. Click the button below to create a new password:</p>
+       <p style="margin: 20px 0;">
+         <a href="${resetUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+       </p>
+       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${resetUrl}">${resetUrl}</a></p>
+       <p style="color: #666; font-size: 14px;">This link expires in 1 hour.</p>
+       <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>`,
+    ),
+  };
+}
+
 // ============================================
 // ORDER TEMPLATES
 // ============================================
@@ -207,6 +246,78 @@ export function lowStockEmail(
       `<p><strong>${productName}</strong> is running low on stock.</p>
        <p>Current stock: <strong>${currentStock}</strong> (threshold: ${threshold})</p>
        <p>Please restock soon to avoid stockouts.</p>`,
+    ),
+  };
+}
+
+// ============================================
+// REFUND REQUEST TEMPLATES
+// ============================================
+
+export function refundRequestReceivedEmail(
+  firstName: string | null,
+  orderNumber: string,
+): { subject: string; html: string } {
+  return {
+    subject: `Refund request received for order ${orderNumber}`,
+    html: wrapHtml(
+      'Refund Request Received',
+      `<p>Hi ${firstName ?? 'there'},</p>
+       <p>We've received your refund request for order <strong>${orderNumber}</strong>.</p>
+       <p>Our team will review your request and get back to you within 2-3 business days.</p>
+       <p>You can check the status of your request in your order history.</p>`,
+    ),
+  };
+}
+
+export function refundRequestApprovedEmail(
+  firstName: string | null,
+  orderNumber: string,
+): { subject: string; html: string } {
+  return {
+    subject: `Refund request approved for order ${orderNumber}`,
+    html: wrapHtml(
+      'Refund Request Approved',
+      `<p>Hi ${firstName ?? 'there'},</p>
+       <p>Great news! Your refund request for order <strong>${orderNumber}</strong> has been approved.</p>
+       <p>The refund will be processed shortly and you'll receive a confirmation once it's complete.</p>`,
+    ),
+  };
+}
+
+export function refundRequestRejectedEmail(
+  firstName: string | null,
+  orderNumber: string,
+  reason: string | null,
+): { subject: string; html: string } {
+  return {
+    subject: `Refund request update for order ${orderNumber}`,
+    html: wrapHtml(
+      'Refund Request Update',
+      `<p>Hi ${firstName ?? 'there'},</p>
+       <p>We've reviewed your refund request for order <strong>${orderNumber}</strong>.</p>
+       <p>Unfortunately, we're unable to process your refund at this time.</p>
+       ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+       <p>If you have any questions, please contact our support team.</p>`,
+    ),
+  };
+}
+
+export function refundRequestAdminEmail(
+  orderNumber: string,
+  customerEmail: string,
+  reason: string,
+): { subject: string; html: string } {
+  return {
+    subject: `New refund request: ${orderNumber}`,
+    html: wrapHtml(
+      'New Refund Request',
+      `<p>A customer has submitted a refund request.</p>
+       <p><strong>Order:</strong> ${orderNumber}</p>
+       <p><strong>Customer:</strong> ${customerEmail}</p>
+       <p><strong>Reason:</strong></p>
+       <p style="background: #f5f5f5; padding: 12px; border-radius: 4px;">${reason}</p>
+       <p>Please review this request in the admin dashboard.</p>`,
     ),
   };
 }

@@ -1,5 +1,15 @@
-import { Controller, Post, Get, Param, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService, type TokenResponse } from './auth.service';
 import {
@@ -35,13 +45,22 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Authenticate with email and password' })
+  @ApiHeader({
+    name: 'x-guest-cart-token',
+    description: 'Guest cart token to merge on login',
+    required: false,
+  })
   @ApiSuccessResponse(TokenResponseDto, 200, 'Login successful')
   @ApiErrorResponses(400, 401, 429)
-  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<TokenResponse> {
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Headers('x-guest-cart-token') guestCartToken?: string,
+  ): Promise<TokenResponse> {
     const userAgent = req.headers['user-agent'];
     const ipAddress = req.ip || req.socket.remoteAddress;
 
-    return this.authService.login(dto, userAgent, ipAddress);
+    return this.authService.login(dto, userAgent, ipAddress, guestCartToken);
   }
 
   @Post('refresh')

@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { Env } from '../../config/env.validation';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GuestCartModule } from '../guest-cart/guest-cart.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       }),
     }),
     NotificationsModule,
+    GuestCartModule,
   ],
   providers: [AuthService],
   controllers: [AuthController],

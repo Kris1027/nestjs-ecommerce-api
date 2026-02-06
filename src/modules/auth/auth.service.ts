@@ -9,6 +9,7 @@ import { RegisterDto, LoginDto } from './dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationEvents, PasswordChangedEvent } from '../notifications/events';
 import { EmailService } from '../notifications/email.service';
+import { GuestCartService } from '../guest-cart/guest-cart.service';
 import {
   emailVerificationEmail,
   passwordResetEmail,
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly configService: ConfigService<Env, true>,
     private readonly eventEmitter: EventEmitter2,
     private readonly emailService: EmailService,
+    private readonly guestCartService: GuestCartService,
   ) {}
 
   // ============================================
@@ -331,7 +333,12 @@ export class AuthService {
     return { message: 'Password reset successfully. Please log in with your new password.' };
   }
 
-  async login(dto: LoginDto, userAgent?: string, ipAddress?: string): Promise<TokenResponse> {
+  async login(
+    dto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+    guestCartToken?: string,
+  ): Promise<TokenResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: {
@@ -349,6 +356,15 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Merge guest cart into user cart if token provided
+    if (guestCartToken) {
+      try {
+        await this.guestCartService.mergeIntoUserCart(guestCartToken, user.id);
+      } catch {
+        // Ignore merge errors - don't block login
+      }
     }
 
     const payload: JwtPayload = {

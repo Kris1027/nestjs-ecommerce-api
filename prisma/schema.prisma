@@ -46,6 +46,7 @@ model User {
         reviews                 Review[]
         notifications           Notification[]
         notificationPreferences NotificationPreference[]
+        refundRequests          RefundRequest[]
 
         @@map("users")
 }
@@ -378,6 +379,7 @@ model RefundRequest {
         orderId    String              @unique @map("order_id")
         order      Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
         userId     String              @map("user_id")
+        user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
         reason     String
         status     RefundRequestStatus @default(PENDING)
         adminNotes String?             @map("admin_notes")

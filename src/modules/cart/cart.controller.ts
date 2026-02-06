@@ -12,7 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { CurrentUser } from '../../common/decorators';
-import { AddToCartDto, CartResponseDto, UpdateCartItemDto } from './dto';
+import { AddToCartDto, ApplyCouponDto, CartResponseDto, UpdateCartItemDto } from './dto';
 import { ApiErrorResponses, ApiSuccessResponse } from '../../common/swagger';
 
 @ApiTags('Cart')
@@ -72,5 +72,25 @@ export class CartController {
   @ApiErrorResponses(401, 429)
   clearCart(@CurrentUser('sub') userId: string): ReturnType<CartService['clearCart']> {
     return this.cartService.clearCart(userId);
+  }
+
+  @Post('coupon')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Apply a coupon code to cart' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Coupon applied')
+  @ApiErrorResponses(400, 401, 404, 429)
+  applyCoupon(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: ApplyCouponDto,
+  ): ReturnType<CartService['applyCoupon']> {
+    return this.cartService.applyCoupon(userId, dto.code);
+  }
+
+  @Delete('coupon')
+  @ApiOperation({ summary: 'Remove coupon from cart' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Coupon removed')
+  @ApiErrorResponses(401, 404, 429)
+  removeCoupon(@CurrentUser('sub') userId: string): ReturnType<CartService['removeCoupon']> {
+    return this.cartService.removeCoupon(userId);
   }
 }

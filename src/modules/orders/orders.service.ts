@@ -511,8 +511,7 @@ export class OrdersService {
     // 2. Validate order status - only DELIVERED or CONFIRMED orders can request refund
     if (order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CONFIRMED) {
       throw new BadRequestException(
-        `Cannot request refund for order with status "${order.status}". Only DELIVERED or CONFIRMED orders are
-  eligible.`,
+        `Cannot request refund for order with status "${order.status}". Only DELIVERED or CONFIRMED orders are eligible.`,
       );
     }
 
@@ -554,7 +553,7 @@ export class OrdersService {
     adminNotes: string | null;
     reviewedAt: Date | null;
     createdAt: Date;
-  } | null> {
+  }> {
     // Fetch order first to verify ownership
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -566,7 +565,7 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    // Fetch the refund request (may not exist)
+    // Fetch the refund request
     const refundRequest = await this.prisma.refundRequest.findUnique({
       where: { orderId },
       select: {
@@ -579,6 +578,10 @@ export class OrdersService {
         createdAt: true,
       },
     });
+
+    if (!refundRequest) {
+      throw new NotFoundException('Refund request not found for this order');
+    }
 
     return refundRequest;
   }

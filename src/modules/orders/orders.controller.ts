@@ -116,7 +116,7 @@ export class OrdersController {
   @Get('my/:id/refund-request')
   @ApiOperation({ summary: 'Get refund request status for an order' })
   @ApiParam({ name: 'id', description: 'Order CUID' })
-  @ApiSuccessResponse(RefundRequestResponseDto, 200, 'Refund request retrieved (or null if none)')
+  @ApiSuccessResponse(RefundRequestResponseDto, 200, 'Refund request retrieved')
   @ApiErrorResponses(401, 404, 429)
   getRefundRequest(
     @CurrentUser('sub') userId: string,

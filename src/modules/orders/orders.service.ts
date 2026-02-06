@@ -14,6 +14,7 @@ import {
 import { ensureUniqueOrderNumber } from '../../common/utils/order-number.util';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { TaxService } from '../tax/tax.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
@@ -95,6 +96,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
     private readonly shippingService: ShippingService,
+    private readonly taxService: TaxService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -191,20 +193,21 @@ export class OrdersService {
       discountAmount = couponResult.discountAmount;
     }
 
-    const tax = 0; // Will integrate tax calculation later
-
     // 6. Calculate shipping cost based on chosen method and subtotal
     const { shippingCost, methodName: shippingMethodName } =
       await this.shippingService.calculateShipping(dto.shippingMethodId, subtotal);
 
+    // 7. Calculate tax using default rate
+    const { tax } = await this.taxService.calculateTax(subtotal);
+
     const total = subtotal - discountAmount + shippingCost + tax;
 
-    // 6. Generate a unique order number (retry on collision)
+    // 8. Generate a unique order number (retry on collision)
     const orderNumber = await ensureUniqueOrderNumber((num) =>
       this.prisma.order.findUnique({ where: { orderNumber: num }, select: { id: true } }),
     );
 
-    // 7. Create order, order items, reserve stock, and clear cart — all atomically
+    // 9. Create order, order items, reserve stock, and clear cart — all atomically
     const order = await this.prisma.$transaction(async (tx) => {
       // Create the order with address snapshot
       const created = await tx.order.create({

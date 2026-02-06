@@ -29,8 +29,12 @@ const createCouponSchema = z
     usageLimitPerUser: z.number().int().min(1, 'Per-user limit must be at least 1').optional(),
 
     // Validity window - ISO date strings
-    validFrom: z.coerce.date({ message: 'Valid from must be a valid date' }),
-    validUntil: z.coerce.date({ message: 'Valid until must be a valid date' }),
+    validFrom: z.iso
+      .datetime({ message: 'Valid from must be a valid ISO 8601 date' })
+      .transform((val) => new Date(val)),
+    validUntil: z.iso
+      .datetime({ message: 'Valid until must be a valid ISO 8601 date' })
+      .transform((val) => new Date(val)),
 
     isActive: z.boolean().default(true),
   })

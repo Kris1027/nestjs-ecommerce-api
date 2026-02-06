@@ -9,23 +9,31 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { CurrentUser } from '../../common/decorators';
-import { AddToCartDto, UpdateCartItemDto } from './dto';
+import { AddToCartDto, CartResponseDto, UpdateCartItemDto } from './dto';
+import { ApiErrorResponses, ApiSuccessResponse } from '../../common/swagger';
 
+@ApiTags('Cart')
+@ApiBearerAuth('access-token')
 @Controller('cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  // GET /cart - View current user's cart
   @Get()
+  @ApiOperation({ summary: 'View current user cart' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Cart retrieved')
+  @ApiErrorResponses(401, 429)
   getCart(@CurrentUser('sub') userId: string): ReturnType<CartService['getCart']> {
     return this.cartService.getCart(userId);
   }
 
-  // POST /cart/items - Add a product to cart
   @Post('items')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Add a product to cart' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Product added to cart')
+  @ApiErrorResponses(400, 401, 404, 429)
   addItem(
     @CurrentUser('sub') userId: string,
     @Body() dto: AddToCartDto,
@@ -33,8 +41,11 @@ export class CartController {
     return this.cartService.addItem(userId, dto);
   }
 
-  // PATCH /cart/items/:itemId - Update quantity of a cart item
   @Patch('items/:itemId')
+  @ApiOperation({ summary: 'Update cart item quantity' })
+  @ApiParam({ name: 'itemId', description: 'Cart item CUID' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Cart item updated')
+  @ApiErrorResponses(400, 401, 404, 429)
   updateItem(
     @CurrentUser('sub') userId: string,
     @Param('itemId') itemId: string,
@@ -43,8 +54,11 @@ export class CartController {
     return this.cartService.updateItem(userId, itemId, dto);
   }
 
-  // DELETE /cart/items/:itemId - Remove a single item from cart
   @Delete('items/:itemId')
+  @ApiOperation({ summary: 'Remove an item from cart' })
+  @ApiParam({ name: 'itemId', description: 'Cart item CUID' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Cart item removed')
+  @ApiErrorResponses(401, 404, 429)
   removeItem(
     @CurrentUser('sub') userId: string,
     @Param('itemId') itemId: string,
@@ -52,8 +66,10 @@ export class CartController {
     return this.cartService.removeItem(userId, itemId);
   }
 
-  // DELETE /cart - Clear all items from cart
   @Delete()
+  @ApiOperation({ summary: 'Clear all items from cart' })
+  @ApiSuccessResponse(CartResponseDto, 200, 'Cart cleared')
+  @ApiErrorResponses(401, 429)
   clearCart(@CurrentUser('sub') userId: string): ReturnType<CartService['clearCart']> {
     return this.cartService.clearCart(userId);
   }

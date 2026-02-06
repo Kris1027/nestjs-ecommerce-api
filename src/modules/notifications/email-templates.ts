@@ -3,6 +3,19 @@
 // Each returns { subject, html } for use with Resend API
 // ============================================
 
+/**
+ * Escapes HTML special characters to prevent HTML injection.
+ * Must be applied to ALL user-controlled content before interpolation.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Shared wrapper that adds consistent styling to all emails
 function wrapHtml(title: string, body: string): string {
   return `
@@ -20,11 +33,12 @@ function wrapHtml(title: string, body: string): string {
 // ============================================
 
 export function welcomeEmail(firstName: string | null): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
   return {
     subject: 'Welcome to our store!',
     html: wrapHtml(
       'Welcome!',
-      `<p>Hi ${firstName ?? 'there'},</p>
+      `<p>Hi ${safeName},</p>
        <p>Thank you for creating an account. We're excited to have you!</p>
        <p>Start browsing our products and find something you love.</p>`,
     ),
@@ -32,11 +46,12 @@ export function welcomeEmail(firstName: string | null): { subject: string; html:
 }
 
 export function passwordChangedEmail(firstName: string | null): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
   return {
     subject: 'Your password has been changed',
     html: wrapHtml(
       'Password Changed',
-      `<p>Hi ${firstName ?? 'there'},</p>
+      `<p>Hi ${safeName},</p>
        <p>Your password was successfully changed.</p>
        <p>If you did not make this change, please contact support immediately.</p>`,
     ),
@@ -47,16 +62,18 @@ export function emailVerificationEmail(
   firstName: string | null,
   verifyUrl: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeUrl = escapeHtml(verifyUrl);
   return {
     subject: 'Verify your email address',
     html: wrapHtml(
       'Verify Your Email',
-      `<p>Hi ${firstName ?? 'there'},</p>
+      `<p>Hi ${safeName},</p>
        <p>Please verify your email address by clicking the button below:</p>
        <p style="margin: 20px 0;">
-         <a href="${verifyUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify Email</a>
+         <a href="${safeUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Verify Email</a>
        </p>
-       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${verifyUrl}">${verifyUrl}</a></p>
+       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${safeUrl}">${safeUrl}</a></p>
        <p style="color: #666; font-size: 14px;">This link expires in 24 hours.</p>`,
     ),
   };
@@ -66,16 +83,18 @@ export function passwordResetEmail(
   firstName: string | null,
   resetUrl: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeUrl = escapeHtml(resetUrl);
   return {
     subject: 'Reset your password',
     html: wrapHtml(
       'Reset Your Password',
-      `<p>Hi ${firstName ?? 'there'},</p>
+      `<p>Hi ${safeName},</p>
        <p>We received a request to reset your password. Click the button below to create a new password:</p>
        <p style="margin: 20px 0;">
-         <a href="${resetUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+         <a href="${safeUrl}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
        </p>
-       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${resetUrl}">${resetUrl}</a></p>
+       <p style="color: #666; font-size: 14px;">Or copy this link: <a href="${safeUrl}">${safeUrl}</a></p>
        <p style="color: #666; font-size: 14px;">This link expires in 1 hour.</p>
        <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>`,
     ),
@@ -91,13 +110,16 @@ export function orderCreatedEmail(
   orderNumber: string,
   total: string, // Pre-formatted decimal string (e.g., "129.99")
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeTotal = escapeHtml(total);
   return {
-    subject: `Order ${orderNumber} confirmed`,
+    subject: `Order ${safeOrderNumber} confirmed`,
     html: wrapHtml(
       'Order Confirmed',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your order <strong>${orderNumber}</strong> has been placed successfully.</p>
-       <p>Total: <strong>${total} PLN</strong></p>
+      `<p>Hi ${safeName},</p>
+       <p>Your order <strong>${safeOrderNumber}</strong> has been placed successfully.</p>
+       <p>Total: <strong>${safeTotal} PLN</strong></p>
        <p>We'll notify you when your order ships.</p>`,
     ),
   };
@@ -107,12 +129,14 @@ export function orderShippedEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Order ${orderNumber} shipped`,
+    subject: `Order ${safeOrderNumber} shipped`,
     html: wrapHtml(
       'Order Shipped',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your order <strong>${orderNumber}</strong> is on its way!</p>
+      `<p>Hi ${safeName},</p>
+       <p>Your order <strong>${safeOrderNumber}</strong> is on its way!</p>
        <p>You'll receive another notification when it's delivered.</p>`,
     ),
   };
@@ -122,12 +146,14 @@ export function orderDeliveredEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Order ${orderNumber} delivered`,
+    subject: `Order ${safeOrderNumber} delivered`,
     html: wrapHtml(
       'Order Delivered',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your order <strong>${orderNumber}</strong> has been delivered.</p>
+      `<p>Hi ${safeName},</p>
+       <p>Your order <strong>${safeOrderNumber}</strong> has been delivered.</p>
        <p>We hope you enjoy your purchase! Consider leaving a review.</p>`,
     ),
   };
@@ -137,12 +163,14 @@ export function orderCancelledEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Order ${orderNumber} cancelled`,
+    subject: `Order ${safeOrderNumber} cancelled`,
     html: wrapHtml(
       'Order Cancelled',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your order <strong>${orderNumber}</strong> has been cancelled.</p>
+      `<p>Hi ${safeName},</p>
+       <p>Your order <strong>${safeOrderNumber}</strong> has been cancelled.</p>
        <p>If you were charged, a refund will be processed automatically.</p>`,
     ),
   };
@@ -157,12 +185,15 @@ export function paymentSucceededEmail(
   orderNumber: string,
   amount: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeAmount = escapeHtml(amount);
   return {
-    subject: `Payment received for order ${orderNumber}`,
+    subject: `Payment received for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Payment Received',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>We've received your payment of <strong>${amount} PLN</strong> for order <strong>${orderNumber}</strong>.</p>
+      `<p>Hi ${safeName},</p>
+       <p>We've received your payment of <strong>${safeAmount} PLN</strong> for order <strong>${safeOrderNumber}</strong>.</p>
        <p>Your order is now being processed.</p>`,
     ),
   };
@@ -172,12 +203,14 @@ export function paymentFailedEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Payment failed for order ${orderNumber}`,
+    subject: `Payment failed for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Payment Failed',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your payment for order <strong>${orderNumber}</strong> was not successful.</p>
+      `<p>Hi ${safeName},</p>
+       <p>Your payment for order <strong>${safeOrderNumber}</strong> was not successful.</p>
        <p>Please try again or use a different payment method.</p>`,
     ),
   };
@@ -188,12 +221,15 @@ export function refundInitiatedEmail(
   orderNumber: string,
   amount: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeAmount = escapeHtml(amount);
   return {
-    subject: `Refund initiated for order ${orderNumber}`,
+    subject: `Refund initiated for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Initiated',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>A refund of <strong>${amount} PLN</strong> has been initiated for order <strong>${orderNumber}</strong>.</p>
+      `<p>Hi ${safeName},</p>
+       <p>A refund of <strong>${safeAmount} PLN</strong> has been initiated for order <strong>${safeOrderNumber}</strong>.</p>
        <p>Please allow 5-10 business days for the refund to appear on your statement.</p>`,
     ),
   };
@@ -204,12 +240,15 @@ export function refundCompletedEmail(
   orderNumber: string,
   amount: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeAmount = escapeHtml(amount);
   return {
-    subject: `Refund completed for order ${orderNumber}`,
+    subject: `Refund completed for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Completed',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Your refund of <strong>${amount} PLN</strong> for order <strong>${orderNumber}</strong> has been completed.</p>
+      `<p>Hi ${safeName},</p>
+       <p>Your refund of <strong>${safeAmount} PLN</strong> for order <strong>${safeOrderNumber}</strong> has been completed.</p>
        <p>The amount should appear on your statement shortly.</p>`,
     ),
   };
@@ -219,12 +258,14 @@ export function refundFailedEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Refund issue for order ${orderNumber}`,
+    subject: `Refund issue for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Issue',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>There was an issue processing the refund for order <strong>${orderNumber}</strong>.</p>
+      `<p>Hi ${safeName},</p>
+       <p>There was an issue processing the refund for order <strong>${safeOrderNumber}</strong>.</p>
        <p>Our team has been notified and will resolve this shortly. Please contact support if needed.</p>`,
     ),
   };
@@ -239,11 +280,12 @@ export function lowStockEmail(
   currentStock: number,
   threshold: number,
 ): { subject: string; html: string } {
+  const safeProductName = escapeHtml(productName);
   return {
-    subject: `Low stock alert: ${productName}`,
+    subject: `Low stock alert: ${safeProductName}`,
     html: wrapHtml(
       'Low Stock Alert',
-      `<p><strong>${productName}</strong> is running low on stock.</p>
+      `<p><strong>${safeProductName}</strong> is running low on stock.</p>
        <p>Current stock: <strong>${currentStock}</strong> (threshold: ${threshold})</p>
        <p>Please restock soon to avoid stockouts.</p>`,
     ),
@@ -258,12 +300,14 @@ export function refundRequestReceivedEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Refund request received for order ${orderNumber}`,
+    subject: `Refund request received for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Request Received',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>We've received your refund request for order <strong>${orderNumber}</strong>.</p>
+      `<p>Hi ${safeName},</p>
+       <p>We've received your refund request for order <strong>${safeOrderNumber}</strong>.</p>
        <p>Our team will review your request and get back to you within 2-3 business days.</p>
        <p>You can check the status of your request in your order history.</p>`,
     ),
@@ -274,12 +318,14 @@ export function refundRequestApprovedEmail(
   firstName: string | null,
   orderNumber: string,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
   return {
-    subject: `Refund request approved for order ${orderNumber}`,
+    subject: `Refund request approved for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Request Approved',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>Great news! Your refund request for order <strong>${orderNumber}</strong> has been approved.</p>
+      `<p>Hi ${safeName},</p>
+       <p>Great news! Your refund request for order <strong>${safeOrderNumber}</strong> has been approved.</p>
        <p>The refund will be processed shortly and you'll receive a confirmation once it's complete.</p>`,
     ),
   };
@@ -290,14 +336,17 @@ export function refundRequestRejectedEmail(
   orderNumber: string,
   reason: string | null,
 ): { subject: string; html: string } {
+  const safeName = firstName ? escapeHtml(firstName) : 'there';
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeReason = reason ? escapeHtml(reason) : null;
   return {
-    subject: `Refund request update for order ${orderNumber}`,
+    subject: `Refund request update for order ${safeOrderNumber}`,
     html: wrapHtml(
       'Refund Request Update',
-      `<p>Hi ${firstName ?? 'there'},</p>
-       <p>We've reviewed your refund request for order <strong>${orderNumber}</strong>.</p>
+      `<p>Hi ${safeName},</p>
+       <p>We've reviewed your refund request for order <strong>${safeOrderNumber}</strong>.</p>
        <p>Unfortunately, we're unable to process your refund at this time.</p>
-       ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+       ${safeReason ? `<p><strong>Reason:</strong> ${safeReason}</p>` : ''}
        <p>If you have any questions, please contact our support team.</p>`,
     ),
   };
@@ -308,15 +357,18 @@ export function refundRequestAdminEmail(
   customerEmail: string,
   reason: string,
 ): { subject: string; html: string } {
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const safeEmail = escapeHtml(customerEmail);
+  const safeReason = escapeHtml(reason);
   return {
-    subject: `New refund request: ${orderNumber}`,
+    subject: `New refund request: ${safeOrderNumber}`,
     html: wrapHtml(
       'New Refund Request',
       `<p>A customer has submitted a refund request.</p>
-       <p><strong>Order:</strong> ${orderNumber}</p>
-       <p><strong>Customer:</strong> ${customerEmail}</p>
+       <p><strong>Order:</strong> ${safeOrderNumber}</p>
+       <p><strong>Customer:</strong> ${safeEmail}</p>
        <p><strong>Reason:</strong></p>
-       <p style="background: #f5f5f5; padding: 12px; border-radius: 4px;">${reason}</p>
+       <p style="background: #f5f5f5; padding: 12px; border-radius: 4px;">${safeReason}</p>
        <p>Please review this request in the admin dashboard.</p>`,
     ),
   };

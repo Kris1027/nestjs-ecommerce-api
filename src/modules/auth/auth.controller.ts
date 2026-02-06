@@ -1,8 +1,16 @@
-import { Controller, Post, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService, type TokenResponse } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, TokenResponseDto } from './dto';
+import {
+  RegisterDto,
+  LoginDto,
+  RefreshTokenDto,
+  TokenResponseDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ResendVerificationDto,
+} from './dto';
 import { Public } from '../../common/decorators';
 import { MessageResponseDto } from '../users/dto';
 import { ApiSuccessResponse, ApiErrorResponses } from '../../common/swagger';
@@ -56,5 +64,40 @@ export class AuthController {
   async logout(@Body() dto: RefreshTokenDto): Promise<{ message: string }> {
     await this.authService.logout(dto.refreshToken);
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('verify-email/:token')
+  @ApiOperation({ summary: 'Verify email address with token from email link' })
+  @ApiSuccessResponse(MessageResponseDto, 200, 'Email verified successfully')
+  @ApiErrorResponses(401, 429)
+  verifyEmail(@Param('token') token: string): Promise<{ message: string }> {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiSuccessResponse(MessageResponseDto, 200, 'Verification email sent if account exists')
+  @ApiErrorResponses(400, 429)
+  resendVerification(@Body() dto: ResendVerificationDto): Promise<{ message: string }> {
+    return this.authService.resendVerificationEmail(dto.email);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset email' })
+  @ApiSuccessResponse(MessageResponseDto, 200, 'Password reset email sent if account exists')
+  @ApiErrorResponses(400, 429)
+  forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with token from email' })
+  @ApiSuccessResponse(MessageResponseDto, 200, 'Password reset successfully')
+  @ApiErrorResponses(400, 401, 429)
+  resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    return this.authService.resetPassword(dto.token, dto.password);
   }
 }

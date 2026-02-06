@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { CouponsService } from '../coupons/coupons.service';
 import type { AddToCartDto, UpdateCartItemDto } from './dto';
 
 // What we return for each cart item - product info needed for display
@@ -45,18 +46,29 @@ type CartResponse = {
   }[];
   totalItems: number;
   subtotal: number;
+  couponCode: string | null;
+  discountAmount: number;
+  estimatedTotal: number;
 };
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly couponsService: CouponsService,
+  ) {}
 
   // ============================================
   // HELPER METHODS
   // ============================================
 
   // Transforms raw Prisma cart items into a clean response
-  private formatCartResponse(cartId: string, items: CartItemPayload[]): CartResponse {
+  private formatCartResponse(
+    cartId: string,
+    items: CartItemPayload[],
+    couponCode: string | null,
+    discountAmount: number,
+  ): CartResponse {
     let subtotal = 0;
     let totalItems = 0;
 
@@ -80,11 +92,17 @@ export class CartService {
       };
     });
 
+    subtotal = Math.round(subtotal * 100) / 100; // Avoid floating point drift
+    const estimatedTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+
     return {
       id: cartId,
       items: formattedItems,
       totalItems,
-      subtotal: Math.round(subtotal * 100) / 100, // Avoid floating point drift
+      subtotal,
+      couponCode,
+      discountAmount,
+      estimatedTotal,
     };
   }
 
@@ -135,6 +153,7 @@ export class CartService {
       where: { userId },
       select: {
         id: true,
+        couponCode: true,
         items: {
           select: cartItemSelect,
           orderBy: { createdAt: 'asc' },
@@ -144,10 +163,41 @@ export class CartService {
 
     // No cart yet - return empty cart shape
     if (!cart) {
-      return { id: '', items: [], totalItems: 0, subtotal: 0 };
+      return {
+        id: '',
+        items: [],
+        totalItems: 0,
+        subtotal: 0,
+        couponCode: null,
+        discountAmount: 0,
+        estimatedTotal: 0,
+      };
     }
 
-    return this.formatCartResponse(cart.id, cart.items);
+    // Calculate subtotal first (needed for coupon validation)
+    const subtotal = cart.items.reduce((sum, item) => {
+      return sum + Number(item.product.price) * item.quantity;
+    }, 0);
+
+    // If coupon is applied, validate and calculate discount
+    let discountAmount = 0;
+    let validCouponCode = cart.couponCode;
+
+    if (cart.couponCode) {
+      try {
+        const result = await this.couponsService.validateCoupon(cart.couponCode, userId, subtotal);
+        discountAmount = result.discountAmount;
+      } catch {
+        // Coupon no longer valid - clear it from cart
+        await this.prisma.cart.update({
+          where: { id: cart.id },
+          data: { couponCode: null },
+        });
+        validCouponCode = null;
+      }
+    }
+
+    return this.formatCartResponse(cart.id, cart.items, validCouponCode, discountAmount);
   }
 
   async addItem(userId: string, dto: AddToCartDto): Promise<CartResponse> {
@@ -246,14 +296,80 @@ export class CartService {
     });
 
     if (!cart) {
-      return { id: '', items: [], totalItems: 0, subtotal: 0 };
+      return {
+        id: '',
+        items: [],
+        totalItems: 0,
+        subtotal: 0,
+        couponCode: null,
+        discountAmount: 0,
+        estimatedTotal: 0,
+      };
     }
 
-    // Delete all items but keep the cart shell
-    await this.prisma.cartItem.deleteMany({
-      where: { cartId: cart.id },
+    // Delete all items and clear coupon
+    await this.prisma.$transaction([
+      this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } }),
+      this.prisma.cart.update({ where: { id: cart.id }, data: { couponCode: null } }),
+    ]);
+
+    return {
+      id: cart.id,
+      items: [],
+      totalItems: 0,
+      subtotal: 0,
+      couponCode: null,
+      discountAmount: 0,
+      estimatedTotal: 0,
+    };
+  }
+
+  async applyCoupon(userId: string, code: string): Promise<CartResponse> {
+    // Get cart with items to calculate subtotal
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        items: { select: { quantity: true, product: { select: { price: true } } } },
+      },
     });
 
-    return { id: cart.id, items: [], totalItems: 0, subtotal: 0 };
+    if (!cart || cart.items.length === 0) {
+      throw new BadRequestException('Cannot apply coupon to empty cart');
+    }
+
+    // Calculate subtotal
+    const subtotal = cart.items.reduce((sum, item) => {
+      return sum + Number(item.product.price) * item.quantity;
+    }, 0);
+
+    // Validate coupon (throws if invalid)
+    await this.couponsService.validateCoupon(code, userId, subtotal);
+
+    // Store coupon code on cart
+    await this.prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponCode: code },
+    });
+
+    return this.getCart(userId);
+  }
+
+  async removeCoupon(userId: string): Promise<CartResponse> {
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    await this.prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponCode: null },
+    });
+
+    return this.getCart(userId);
   }
 }

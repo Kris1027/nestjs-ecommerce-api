@@ -56,21 +56,24 @@ export class TaxService {
   // ============================================
 
   async create(dto: CreateTaxRateDto): Promise<TaxRatePayload> {
-    // If this is set as default, unset any existing default first
-    if (dto.isDefault) {
-      await this.prisma.taxRate.updateMany({
-        where: { isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+    // Use transaction to prevent race condition with multiple defaults
+    return this.prisma.$transaction(async (tx) => {
+      // If this is set as default, unset any existing default first
+      if (dto.isDefault) {
+        await tx.taxRate.updateMany({
+          where: { isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    return this.prisma.taxRate.create({
-      data: {
-        name: dto.name,
-        rate: dto.rate,
-        isDefault: dto.isDefault ?? false,
-      },
-      select: taxRateSelect,
+      return tx.taxRate.create({
+        data: {
+          name: dto.name,
+          rate: dto.rate,
+          isDefault: dto.isDefault ?? false,
+        },
+        select: taxRateSelect,
+      });
     });
   }
 
@@ -98,23 +101,26 @@ export class TaxService {
     // Check if exists
     await this.findOne(id);
 
-    // If setting this as default, unset any existing default first
-    if (dto.isDefault === true) {
-      await this.prisma.taxRate.updateMany({
-        where: { isDefault: true, id: { not: id } },
-        data: { isDefault: false },
-      });
-    }
+    // Use transaction to prevent race condition with multiple defaults
+    return this.prisma.$transaction(async (tx) => {
+      // If setting this as default, unset any existing default first
+      if (dto.isDefault === true) {
+        await tx.taxRate.updateMany({
+          where: { isDefault: true, id: { not: id } },
+          data: { isDefault: false },
+        });
+      }
 
-    return this.prisma.taxRate.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        rate: dto.rate,
-        isDefault: dto.isDefault,
-        isActive: dto.isActive,
-      },
-      select: taxRateSelect,
+      return tx.taxRate.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          rate: dto.rate,
+          isDefault: dto.isDefault,
+          isActive: dto.isActive,
+        },
+        select: taxRateSelect,
+      });
     });
   }
 

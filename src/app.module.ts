@@ -28,6 +28,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TaxModule } from './modules/tax/tax.module';
+import { GuestCartModule } from './modules/guest-cart/guest-cart.module';
 
 @Module({
   imports: [
@@ -116,6 +117,7 @@ import { TaxModule } from './modules/tax/tax.module';
     PaymentsModule,
     NotificationsModule,
     TaxModule,
+    GuestCartModule,
   ],
   controllers: [AppController],
   providers: [

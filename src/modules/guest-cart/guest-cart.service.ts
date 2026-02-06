@@ -288,8 +288,8 @@ export class GuestCartService {
   async clearCart(rawToken: string): Promise<GuestCartResponse> {
     const cart = await this.findCartByToken(rawToken);
 
-    if (!cart) {
-      throw new NotFoundException('Cart not found');
+    if (!cart || cart.expiresAt < new Date()) {
+      throw new NotFoundException('Cart not found or expired');
     }
 
     await this.prisma.guestCartItem.deleteMany({

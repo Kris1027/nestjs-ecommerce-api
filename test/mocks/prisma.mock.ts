@@ -119,6 +119,11 @@ export function resetMockPrismaClient(prisma: MockPrismaClient): void {
     }
   }
 
+  prisma.$connect.mockReset();
+  prisma.$connect.mockResolvedValue(undefined);
+  prisma.$disconnect.mockReset();
+  prisma.$disconnect.mockResolvedValue(undefined);
+
   prisma.$transaction.mockReset();
   prisma.$transaction.mockImplementation((arg: unknown) => {
     if (Array.isArray(arg)) {

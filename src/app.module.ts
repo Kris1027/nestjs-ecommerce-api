@@ -27,6 +27,8 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { TaxModule } from './modules/tax/tax.module';
+import { GuestCartModule } from './modules/guest-cart/guest-cart.module';
 
 @Module({
   imports: [
@@ -114,6 +116,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     CloudinaryModule,
     PaymentsModule,
     NotificationsModule,
+    TaxModule,
+    GuestCartModule,
   ],
   controllers: [AppController],
   providers: [

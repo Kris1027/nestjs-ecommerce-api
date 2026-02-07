@@ -2,12 +2,19 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Env } from '../../config/env.validation';
 import { RegisterDto, LoginDto } from './dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { NotificationEvents, UserRegisteredEvent } from '../notifications/events';
+import { NotificationEvents, PasswordChangedEvent } from '../notifications/events';
+import { EmailService } from '../notifications/email.service';
+import { GuestCartService } from '../guest-cart/guest-cart.service';
+import {
+  emailVerificationEmail,
+  passwordResetEmail,
+  welcomeEmail,
+} from '../notifications/email-templates';
 
 interface JwtPayload {
   sub: string;
@@ -30,6 +37,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<Env, true>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly emailService: EmailService,
+    private readonly guestCartService: GuestCartService,
   ) {}
 
   // ============================================
@@ -59,6 +68,16 @@ export class AuthService {
     return bcrypt.hash(token, TOKEN_BCRYPT_ROUNDS);
   }
 
+  /**
+   * SHA-256 hash for verification/reset tokens.
+   * Unlike bcrypt, SHA-256 is deterministic — same input always produces same output.
+   * This allows O(1) database lookup instead of O(n) bcrypt comparisons.
+   * Safe for high-entropy tokens (32 random bytes) where slow hashing isn't needed.
+   */
+  private hashTokenSha256(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
   private getRefreshTokenExpiry(): Date {
     const expiresIn = this.configService.get('JWT_REFRESH_EXPIRES_IN');
     const ms = this.parseExpiry(expiresIn);
@@ -82,6 +101,34 @@ export class AuthService {
     };
 
     return value * multipliers[unit];
+  }
+
+  private generateSecureToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private async sendVerificationEmail(
+    userId: string,
+    email: string,
+    firstName: string | null,
+  ): Promise<void> {
+    const rawToken = this.generateSecureToken();
+    // Use SHA-256 for O(1) lookup instead of bcrypt's O(n) comparison
+    const hashedToken = this.hashTokenSha256(rawToken);
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: hashedToken,
+        emailVerificationExpiry: expiry,
+      },
+    });
+
+    const verifyUrl = `${this.configService.get('FRONTEND_URL')}/verify-email?token=${rawToken}`;
+    const { subject, html } = emailVerificationEmail(firstName, verifyUrl);
+
+    await this.emailService.send(email, subject, html);
   }
 
   // ============================================
@@ -129,16 +176,159 @@ export class AuthService {
       },
     });
 
-    // Emit event for welcome notification (non-blocking, listeners run async)
-    this.eventEmitter.emit(
-      NotificationEvents.USER_REGISTERED,
-      new UserRegisteredEvent(user.id, user.email, user.firstName),
-    );
+    // Send verification email (verification-first)
+    await this.sendVerificationEmail(user.id, user.email, user.firstName);
 
     return { accessToken, refreshToken };
   }
 
-  async login(dto: LoginDto, userAgent?: string, ipAddress?: string): Promise<TokenResponse> {
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    // SHA-256 hash allows direct O(1) database lookup
+    const hashedToken = this.hashTokenSha256(token);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailVerificationToken: hashedToken,
+        emailVerificationExpiry: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+
+    // Mark email as verified and clear token
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
+      },
+    });
+
+    // Send welcome email now that email is verified
+    const { subject, html } = welcomeEmail(user.firstName);
+    await this.emailService.send(user.email, subject, html);
+
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerificationEmail(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, firstName: true, emailVerifiedAt: true },
+    });
+
+    // Always return success to prevent email enumeration
+    const successMessage = {
+      message: 'If an unverified account exists, a verification email has been sent',
+    };
+
+    if (!user || user.emailVerifiedAt) {
+      return successMessage;
+    }
+
+    await this.sendVerificationEmail(user.id, user.email, user.firstName);
+
+    return successMessage;
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, firstName: true, isActive: true },
+    });
+
+    // Always return success to prevent email enumeration
+    const successMessage = {
+      message: 'If an account exists, a password reset email has been sent',
+    };
+
+    if (!user || !user.isActive) {
+      return successMessage;
+    }
+
+    const rawToken = this.generateSecureToken();
+    // Use SHA-256 for O(1) lookup instead of bcrypt's O(n) comparison
+    const hashedToken = this.hashTokenSha256(rawToken);
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: hashedToken,
+        passwordResetExpiry: expiry,
+      },
+    });
+
+    const resetUrl = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${rawToken}`;
+    const { subject, html } = passwordResetEmail(user.firstName, resetUrl);
+
+    await this.emailService.send(user.email, subject, html);
+
+    return successMessage;
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    // SHA-256 hash allows direct O(1) database lookup
+    const hashedToken = this.hashTokenSha256(token);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpiry: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    const hashedPassword = await this.hashPassword(newPassword);
+
+    // Update password, clear token, and revoke all refresh tokens
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        },
+      }),
+      // Invalidate all sessions for security
+      this.prisma.refreshToken.updateMany({
+        where: { userId: user.id },
+        data: { isRevoked: true },
+      }),
+    ]);
+
+    // Notify user that password was changed
+    this.eventEmitter.emit(
+      NotificationEvents.PASSWORD_CHANGED,
+      new PasswordChangedEvent(user.id, user.email, user.firstName),
+    );
+
+    return { message: 'Password reset successfully. Please log in with your new password.' };
+  }
+
+  async login(
+    dto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+    guestCartToken?: string,
+  ): Promise<TokenResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: {
@@ -156,6 +346,15 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Merge guest cart into user cart if token provided
+    if (guestCartToken) {
+      try {
+        await this.guestCartService.mergeIntoUserCart(guestCartToken, user.id);
+      } catch {
+        // Ignore merge errors - don't block login
+      }
     }
 
     const payload: JwtPayload = {

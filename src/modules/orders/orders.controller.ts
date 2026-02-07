@@ -18,6 +18,8 @@ import {
   OrderListDto,
   OrderQueryDto,
   UpdateOrderStatusDto,
+  RequestRefundDto,
+  RefundRequestResponseDto,
 } from './dto';
 import { ApiErrorResponses, ApiPaginatedResponse, ApiSuccessResponse } from '../../common/swagger';
 
@@ -95,6 +97,32 @@ export class OrdersController {
     @Param('id') orderId: string,
   ): ReturnType<OrdersService['cancelOrder']> {
     return this.ordersService.cancelOrder(orderId, userId);
+  }
+
+  @Post('my/:id/request-refund')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Request a refund for an order (DELIVERED or CONFIRMED only)' })
+  @ApiParam({ name: 'id', description: 'Order CUID' })
+  @ApiSuccessResponse(RefundRequestResponseDto, 201, 'Refund request created')
+  @ApiErrorResponses(400, 401, 404, 429)
+  requestRefund(
+    @CurrentUser('sub') userId: string,
+    @Param('id') orderId: string,
+    @Body() dto: RequestRefundDto,
+  ): ReturnType<OrdersService['requestRefund']> {
+    return this.ordersService.requestRefund(orderId, userId, dto.reason);
+  }
+
+  @Get('my/:id/refund-request')
+  @ApiOperation({ summary: 'Get refund request status for an order' })
+  @ApiParam({ name: 'id', description: 'Order CUID' })
+  @ApiSuccessResponse(RefundRequestResponseDto, 200, 'Refund request retrieved')
+  @ApiErrorResponses(401, 404, 429)
+  getRefundRequest(
+    @CurrentUser('sub') userId: string,
+    @Param('id') orderId: string,
+  ): ReturnType<OrdersService['getRefundRequest']> {
+    return this.ordersService.getRefundRequest(orderId, userId);
   }
 
   // ============================================

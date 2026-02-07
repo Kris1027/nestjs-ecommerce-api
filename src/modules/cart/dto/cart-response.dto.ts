@@ -53,4 +53,22 @@ export class CartResponseDto {
 
   @ApiProperty({ description: 'Sum of all line totals', example: 299.97 })
   subtotal: number;
+
+  @ApiPropertyOptional({
+    description: 'Applied coupon code',
+    example: 'SAVE10',
+  })
+  couponCode: string | null;
+
+  @ApiProperty({
+    description: 'Discount amount from coupon (0 if no coupon)',
+    example: 29.99,
+  })
+  discountAmount: number;
+
+  @ApiProperty({
+    description: 'Estimated total after discount (subtotal - discountAmount)',
+    example: 269.98,
+  })
+  estimatedTotal: number;
 }

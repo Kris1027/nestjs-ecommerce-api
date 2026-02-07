@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, OrderStatus, StockMovementType } from '../../generated/prisma/client';
+import {
+  Prisma,
+  OrderStatus,
+  StockMovementType,
+  RefundRequestStatus,
+} from '../../generated/prisma/client';
 import {
   getPrismaPageArgs,
   paginate,
@@ -9,6 +14,7 @@ import {
 import { ensureUniqueOrderNumber } from '../../common/utils/order-number.util';
 import { CouponsService } from '../coupons/coupons.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { TaxService } from '../tax/tax.service';
 import type { CreateOrderDto } from './dto/create-order.dto';
 import type { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import type { OrderQuery } from './dto';
@@ -90,6 +96,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly couponsService: CouponsService,
     private readonly shippingService: ShippingService,
+    private readonly taxService: TaxService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -186,20 +193,21 @@ export class OrdersService {
       discountAmount = couponResult.discountAmount;
     }
 
-    const tax = 0; // Will integrate tax calculation later
-
     // 6. Calculate shipping cost based on chosen method and subtotal
     const { shippingCost, methodName: shippingMethodName } =
       await this.shippingService.calculateShipping(dto.shippingMethodId, subtotal);
 
+    // 7. Calculate tax using default rate
+    const { tax } = await this.taxService.calculateTax(subtotal);
+
     const total = subtotal - discountAmount + shippingCost + tax;
 
-    // 6. Generate a unique order number (retry on collision)
+    // 8. Generate a unique order number (retry on collision)
     const orderNumber = await ensureUniqueOrderNumber((num) =>
       this.prisma.order.findUnique({ where: { orderNumber: num }, select: { id: true } }),
     );
 
-    // 7. Create order, order items, reserve stock, and clear cart — all atomically
+    // 9. Create order, order items, reserve stock, and clear cart — all atomically
     const order = await this.prisma.$transaction(async (tx) => {
       // Create the order with address snapshot
       const created = await tx.order.create({
@@ -470,6 +478,120 @@ export class OrdersService {
     );
 
     return updated;
+  }
+
+  async requestRefund(
+    orderId: string,
+    userId: string,
+    reason: string,
+  ): Promise<{
+    id: string;
+    orderId: string;
+    reason: string;
+    status: RefundRequestStatus;
+    createdAt: Date;
+  }> {
+    // 1. Fetch the order and verify ownership
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        orderNumber: true,
+        refundRequest: { select: { id: true } }, // Check if request already exists
+      },
+    });
+
+    // Return 404 for non-existent or non-owned orders (security: don't leak order existence)
+    if (!order || order.userId !== userId) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // 2. Validate order status - only DELIVERED or CONFIRMED orders can request refund
+    if (order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CONFIRMED) {
+      throw new BadRequestException(
+        `Cannot request refund for order with status "${order.status}". Only DELIVERED or CONFIRMED orders are eligible.`,
+      );
+    }
+
+    // 3. Check if a refund request already exists (unique constraint in DB, but check early for better UX)
+    if (order.refundRequest) {
+      throw new BadRequestException('A refund request already exists for this order');
+    }
+
+    // 4. Create the refund request (catch unique constraint for race condition)
+    let refundRequest;
+    try {
+      refundRequest = await this.prisma.refundRequest.create({
+        data: {
+          orderId,
+          userId,
+          reason,
+          status: RefundRequestStatus.PENDING,
+        },
+        select: {
+          id: true,
+          orderId: true,
+          reason: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('A refund request already exists for this order');
+      }
+      throw error;
+    }
+
+    // TODO: Emit event for admin notification (RefundRequestCreatedEvent)
+
+    return refundRequest;
+  }
+
+  async getRefundRequest(
+    orderId: string,
+    userId: string,
+  ): Promise<{
+    id: string;
+    orderId: string;
+    reason: string;
+    status: RefundRequestStatus;
+    adminNotes: string | null;
+    reviewedAt: Date | null;
+    createdAt: Date;
+  }> {
+    // Fetch order first to verify ownership
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { userId: true },
+    });
+
+    // Return 404 for non-existent or non-owned orders
+    if (!order || order.userId !== userId) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Fetch the refund request
+    const refundRequest = await this.prisma.refundRequest.findUnique({
+      where: { orderId },
+      select: {
+        id: true,
+        orderId: true,
+        reason: true,
+        status: true,
+        adminNotes: true,
+        reviewedAt: true,
+        createdAt: true,
+      },
+    });
+
+    if (!refundRequest) {
+      throw new NotFoundException('Refund request not found for this order');
+    }
+
+    return refundRequest;
   }
 
   // ============================================

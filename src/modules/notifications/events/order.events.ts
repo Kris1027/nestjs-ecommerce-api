@@ -21,3 +21,15 @@ export class OrderStatusChangedEvent {
     public readonly newStatus: string, // The status it changed TO
   ) {}
 }
+
+// Event emitted when a customer submits a refund request
+export class RefundRequestCreatedEvent {
+  constructor(
+    public readonly userId: string, // Customer who requested
+    public readonly userEmail: string, // Customer email for notification
+    public readonly userFirstName: string | null, // For email greeting
+    public readonly orderId: string, // Reference for in-app notification
+    public readonly orderNumber: string, // Human-readable "ORD-20260205-XXXX"
+    public readonly reason: string, // Customer's reason for refund
+  ) {}
+}

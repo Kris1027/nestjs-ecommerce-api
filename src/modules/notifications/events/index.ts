@@ -1,5 +1,8 @@
-// Re-export all event classes
-export { OrderCreatedEvent, OrderStatusChangedEvent } from './order.events';
+export {
+  OrderCreatedEvent,
+  OrderStatusChangedEvent,
+  RefundRequestCreatedEvent,
+} from './order.events';
 export {
   PaymentSucceededEvent,
   PaymentFailedEvent,
@@ -15,6 +18,7 @@ export { UserRegisteredEvent, PasswordChangedEvent } from './auth.events';
 export const NotificationEvents = {
   ORDER_CREATED: 'order.created',
   ORDER_STATUS_CHANGED: 'order.status.changed',
+  REFUND_REQUEST_CREATED: 'refund.request.created',
   PAYMENT_SUCCEEDED: 'payment.succeeded',
   PAYMENT_FAILED: 'payment.failed',
   REFUND_INITIATED: 'refund.initiated',

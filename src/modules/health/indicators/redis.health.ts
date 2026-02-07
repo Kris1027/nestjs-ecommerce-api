@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 // HealthIndicatorResult is the proper return type for indicator methods
 import { HealthIndicatorResult, HealthIndicatorService } from '@nestjs/terminus';
@@ -7,6 +7,8 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisHealthIndicator {
+  // Logger for debugging health check failures
+  private readonly logger = new Logger(RedisHealthIndicator.name);
   // Store Redis client instance for reuse
   private readonly redis: Redis;
 
@@ -39,7 +41,10 @@ export class RedisHealthIndicator {
 
       // If ping succeeded without throwing, Redis is healthy
       return indicator.up();
-    } catch {
+    } catch (error) {
+      // Log the actual error for debugging (not exposed in response)
+      this.logger.error('Redis health check failed', error instanceof Error ? error.stack : error);
+
       // Redis unreachable - return unhealthy status
       return indicator.down({ message: 'Redis connection failed' });
     }

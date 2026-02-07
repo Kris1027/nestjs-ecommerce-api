@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 // HealthIndicatorService is the modern way to create custom health indicators
 // HealthIndicatorResult is the proper return type for indicator methods
 import { HealthIndicatorResult, HealthIndicatorService } from '@nestjs/terminus';
@@ -8,6 +8,9 @@ import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class PrismaHealthIndicator {
+  // Logger for debugging health check failures
+  private readonly logger = new Logger(PrismaHealthIndicator.name);
+
   constructor(
     // HealthIndicatorService helps us build properly formatted health responses
     private readonly healthIndicatorService: HealthIndicatorService,
@@ -28,7 +31,13 @@ export class PrismaHealthIndicator {
 
       // Database responded - return healthy status
       return indicator.up();
-    } catch {
+    } catch (error) {
+      // Log the actual error for debugging (not exposed in response)
+      this.logger.error(
+        'Database health check failed',
+        error instanceof Error ? error.stack : error,
+      );
+
       // Database unreachable - return unhealthy status
       // down() causes the overall health check to fail (503 status)
       return indicator.down({ message: 'Database connection failed' });

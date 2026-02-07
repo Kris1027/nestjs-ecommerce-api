@@ -29,6 +29,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TaxModule } from './modules/tax/tax.module';
 import { GuestCartModule } from './modules/guest-cart/guest-cart.module';
+import { QueueModule } from './modules/queue/queue.module';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { GuestCartModule } from './modules/guest-cart/guest-cart.module';
     }),
     PrismaModule,
     EventEmitterModule.forRoot(),
+    QueueModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

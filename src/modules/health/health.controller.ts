@@ -6,16 +6,19 @@ import { HealthCheck, HealthCheckResult, HealthCheckService } from '@nestjs/term
 
 // @Public() bypasses JWT authentication - health checks must be accessible without auth
 import { Public } from '../../common/decorators';
-// Custom indicator to check database connectivity
+// Custom indicators to check service connectivity
 import { PrismaHealthIndicator } from './indicators/prisma.health';
+import { RedisHealthIndicator } from './indicators/redis.health';
 
 @Controller('health')
 export class HealthController {
   constructor(
     // Orchestrates running all health checks
     private readonly health: HealthCheckService,
-    // Our custom database health indicator
+    // Database health indicator
     private readonly prismaHealth: PrismaHealthIndicator,
+    // Redis/queue health indicator
+    private readonly redisHealth: RedisHealthIndicator,
   ) {}
 
   // GET /health - Liveness probe
@@ -39,8 +42,9 @@ export class HealthController {
   checkReadiness(): Promise<HealthCheckResult> {
     return this.health.check([
       // Check database connectivity
-      // 'database' is the key that appears in the response
       () => this.prismaHealth.isHealthy('database'),
+      // Check Redis connectivity (required for BullMQ queues)
+      () => this.redisHealth.isHealthy('redis'),
     ]);
   }
 }

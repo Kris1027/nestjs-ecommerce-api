@@ -520,22 +520,30 @@ export class OrdersService {
       throw new BadRequestException('A refund request already exists for this order');
     }
 
-    // 4. Create the refund request
-    const refundRequest = await this.prisma.refundRequest.create({
-      data: {
-        orderId,
-        userId,
-        reason,
-        status: RefundRequestStatus.PENDING,
-      },
-      select: {
-        id: true,
-        orderId: true,
-        reason: true,
-        status: true,
-        createdAt: true,
-      },
-    });
+    // 4. Create the refund request (catch unique constraint for race condition)
+    let refundRequest;
+    try {
+      refundRequest = await this.prisma.refundRequest.create({
+        data: {
+          orderId,
+          userId,
+          reason,
+          status: RefundRequestStatus.PENDING,
+        },
+        select: {
+          id: true,
+          orderId: true,
+          reason: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('A refund request already exists for this order');
+      }
+      throw error;
+    }
 
     // TODO: Emit event for admin notification (RefundRequestCreatedEvent)
 

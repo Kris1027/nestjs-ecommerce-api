@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -20,6 +21,13 @@ import { GuestCartService } from './guest-cart.service';
 
 const TOKEN_HEADER = 'x-guest-cart-token';
 
+function requireToken(token: string | undefined): string {
+  if (!token) {
+    throw new BadRequestException(`Missing ${TOKEN_HEADER} header`);
+  }
+  return token;
+}
+
 @ApiTags('Guest Cart')
 @Public()
 @Controller('guest-cart')
@@ -30,9 +38,11 @@ export class GuestCartController {
   @ApiOperation({ summary: 'View guest cart (requires token header)' })
   @ApiHeader({ name: TOKEN_HEADER, description: 'Guest cart session token', required: true })
   @ApiSuccessResponse(GuestCartResponseDto, 200, 'Cart retrieved')
-  @ApiErrorResponses(404, 429)
-  getCart(@Headers(TOKEN_HEADER) token: string): ReturnType<GuestCartService['getCart']> {
-    return this.guestCartService.getCart(token);
+  @ApiErrorResponses(400, 404, 429)
+  getCart(
+    @Headers(TOKEN_HEADER) token: string | undefined,
+  ): ReturnType<GuestCartService['getCart']> {
+    return this.guestCartService.getCart(requireToken(token));
   }
 
   @Post('items')
@@ -63,11 +73,11 @@ export class GuestCartController {
   @ApiSuccessResponse(GuestCartResponseDto, 200, 'Item updated')
   @ApiErrorResponses(400, 404, 429)
   updateItem(
-    @Headers(TOKEN_HEADER) token: string,
+    @Headers(TOKEN_HEADER) token: string | undefined,
     @Param('itemId') itemId: string,
     @Body() dto: UpdateGuestCartItemDto,
   ): ReturnType<GuestCartService['updateItem']> {
-    return this.guestCartService.updateItem(token, itemId, dto);
+    return this.guestCartService.updateItem(requireToken(token), itemId, dto);
   }
 
   @Delete('items/:itemId')
@@ -75,20 +85,22 @@ export class GuestCartController {
   @ApiHeader({ name: TOKEN_HEADER, description: 'Guest cart session token', required: true })
   @ApiParam({ name: 'itemId', description: 'Cart item CUID' })
   @ApiSuccessResponse(GuestCartResponseDto, 200, 'Item removed')
-  @ApiErrorResponses(404, 429)
+  @ApiErrorResponses(400, 404, 429)
   removeItem(
-    @Headers(TOKEN_HEADER) token: string,
+    @Headers(TOKEN_HEADER) token: string | undefined,
     @Param('itemId') itemId: string,
   ): ReturnType<GuestCartService['removeItem']> {
-    return this.guestCartService.removeItem(token, itemId);
+    return this.guestCartService.removeItem(requireToken(token), itemId);
   }
 
   @Delete()
   @ApiOperation({ summary: 'Clear all items from guest cart' })
   @ApiHeader({ name: TOKEN_HEADER, description: 'Guest cart session token', required: true })
   @ApiSuccessResponse(GuestCartResponseDto, 200, 'Cart cleared')
-  @ApiErrorResponses(404, 429)
-  clearCart(@Headers(TOKEN_HEADER) token: string): ReturnType<GuestCartService['clearCart']> {
-    return this.guestCartService.clearCart(token);
+  @ApiErrorResponses(400, 404, 429)
+  clearCart(
+    @Headers(TOKEN_HEADER) token: string | undefined,
+  ): ReturnType<GuestCartService['clearCart']> {
+    return this.guestCartService.clearCart(requireToken(token));
   }
 }

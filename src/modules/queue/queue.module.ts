@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
-
 import { type Env } from '../../config/env.validation';
 import { QUEUE_NAMES } from './queue.types';
 import { QueueService } from './queue.service';
-import { EmailProcessor } from './processors/email.processor'; // ADD THIS
+import { PaymentsModule } from '../payments/payments.module';
+import { EmailProcessor } from './processors/email.processor';
+import { CleanupProcessor } from './processors/cleanup.processor';
 
 @Module({
   imports: [
@@ -40,8 +41,10 @@ import { EmailProcessor } from './processors/email.processor'; // ADD THIS
         },
       },
     ),
+
+    PaymentsModule,
   ],
-  providers: [QueueService, EmailProcessor], // ADD EmailProcessor
+  providers: [QueueService, EmailProcessor, CleanupProcessor],
   exports: [QueueService],
 })
 export class QueueModule {}

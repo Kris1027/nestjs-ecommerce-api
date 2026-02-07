@@ -28,7 +28,10 @@ export default tseslint.config(
     rules: {
       // TypeScript strict rules
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',
@@ -68,7 +71,7 @@ export default tseslint.config(
   },
   // Override for files using Prisma types (adapter causes type inference issues)
   {
-    files: ['src/**/*.service.ts', 'src/**/*.listener.ts'],
+    files: ['src/**/*.service.ts', 'src/**/*.listener.ts', 'src/**/*.processor.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

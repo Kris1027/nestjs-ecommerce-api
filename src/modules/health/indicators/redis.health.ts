@@ -46,7 +46,21 @@ export class RedisHealthIndicator {
   }
 
   // Clean up Redis connection when the app shuts down
+  // Use timeout + fallback to prevent hanging during shutdown if Redis is unresponsive
   async onModuleDestroy(): Promise<void> {
-    await this.redis.quit();
+    const QUIT_TIMEOUT_MS = 1000;
+
+    try {
+      // Try graceful quit with timeout
+      await Promise.race([
+        this.redis.quit(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Redis quit timeout')), QUIT_TIMEOUT_MS),
+        ),
+      ]);
+    } catch {
+      // If quit() fails or times out, forcibly close the connection
+      this.redis.disconnect();
+    }
   }
 }

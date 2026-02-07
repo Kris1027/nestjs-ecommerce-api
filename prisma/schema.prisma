@@ -569,6 +569,7 @@ model WebhookEvent {
         type        String // e.g., "payment_intent.succeeded"
         processedAt DateTime @default(now()) @map("processed_at")
 
+        @@index([processedAt])
         @@map("webhook_events")
 }
 

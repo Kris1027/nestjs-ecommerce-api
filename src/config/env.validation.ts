@@ -18,6 +18,7 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().startsWith('re_'),
   EMAIL_FROM: z.email(),
   FRONTEND_URL: z.url(),
+  REDIS_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

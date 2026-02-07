@@ -5,6 +5,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { type Env } from '../../config/env.validation';
 import { QUEUE_NAMES } from './queue.types';
 import { QueueService } from './queue.service';
+import { EmailProcessor } from './processors/email.processor'; // ADD THIS
 
 @Module({
   imports: [
@@ -18,29 +19,29 @@ import { QueueService } from './queue.service';
       inject: [ConfigService],
     }),
 
-    // Register our two queues with default job options
+    // Register queues with default job options
     BullModule.registerQueue(
       {
         name: QUEUE_NAMES.EMAIL,
         defaultJobOptions: {
-          attempts: 3, // Retry failed jobs 3 times
-          backoff: { type: 'exponential', delay: 2000 }, // 2s, 4s, 8s delays
-          removeOnComplete: true, // Don't keep successful jobs in Redis
-          removeOnFail: false, // Keep failed jobs for debugging
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: true,
+          removeOnFail: false,
         },
       },
       {
         name: QUEUE_NAMES.CLEANUP,
         defaultJobOptions: {
           attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 }, // 5s base for cleanup
+          backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,
           removeOnFail: false,
         },
       },
     ),
   ],
-  providers: [QueueService],
-  exports: [QueueService], // Other modules can inject QueueService
+  providers: [QueueService, EmailProcessor], // ADD EmailProcessor
+  exports: [QueueService],
 })
 export class QueueModule {}

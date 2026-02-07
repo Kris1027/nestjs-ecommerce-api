@@ -120,6 +120,7 @@ export function createMockGuestCartService(): {
 export function createMockCloudinaryService(): {
   uploadImage: jest.Mock;
   deleteImage: jest.Mock;
+  deleteImages: jest.Mock;
 } {
   return {
     uploadImage: jest.fn().mockResolvedValue({
@@ -127,6 +128,7 @@ export function createMockCloudinaryService(): {
       publicId: 'test-public-id',
     }),
     deleteImage: jest.fn().mockResolvedValue(undefined),
+    deleteImages: jest.fn().mockResolvedValue(undefined),
   };
 }
 

@@ -63,8 +63,8 @@ export class EmailProcessor extends WorkerHost {
   @OnWorkerEvent('failed')
   onFailed(job: Job<EmailJobData>, error: Error): void {
     this.logger.error(
-      `Email job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
-      { to: job.data.to, subject: job.data.subject },
+      `Email job ${job.id} to ${job.data.to} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      error.stack,
     );
   }
 }

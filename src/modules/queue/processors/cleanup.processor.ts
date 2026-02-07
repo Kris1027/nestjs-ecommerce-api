@@ -168,6 +168,7 @@ export class CleanupProcessor extends WorkerHost {
   onFailed(job: Job, error: Error): void {
     this.logger.error(
       `Cleanup job ${job.name} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      error.stack,
     );
   }
 }

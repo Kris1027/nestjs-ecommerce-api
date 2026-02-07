@@ -101,7 +101,8 @@ describe('AuthService', () => {
     });
 
     it('should throw ConflictException if email already exists', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const existingUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(existingUser);
 
       await expect(service.register(sampleRegisterDto)).rejects.toThrow(ConflictException);
 
@@ -109,10 +110,11 @@ describe('AuthService', () => {
     });
 
     it('should hash the password with bcrypt before storing', async () => {
+      const mockUser = createMockUser();
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue(createMockUser());
+      prisma.user.create.mockResolvedValue(mockUser);
       prisma.refreshToken.create.mockResolvedValue({} as never);
-      prisma.user.update.mockResolvedValue(createMockUser());
+      prisma.user.update.mockResolvedValue(mockUser);
 
       await service.register(sampleRegisterDto);
 
@@ -141,7 +143,8 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException for wrong password', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const mockUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
       await expect(service.login(sampleLoginDto)).rejects.toThrow(UnauthorizedException);
@@ -160,19 +163,21 @@ describe('AuthService', () => {
     });
 
     it('should merge guest cart on login when token provided', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const mockUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(mockUser);
       prisma.refreshToken.create.mockResolvedValue({} as never);
 
       await service.login(sampleLoginDto, 'Mozilla/5.0', '127.0.0.1', 'guest-cart-token');
 
       expect(guestCartService.mergeIntoUserCart).toHaveBeenCalledWith(
         'guest-cart-token',
-        createMockUser().id,
+        mockUser.id,
       );
     });
 
     it('should not block login if guest cart merge fails', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const mockUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(mockUser);
       prisma.refreshToken.create.mockResolvedValue({} as never);
       guestCartService.mergeIntoUserCart.mockRejectedValue(new Error('merge failed'));
 

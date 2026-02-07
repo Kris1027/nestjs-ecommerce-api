@@ -111,7 +111,8 @@ describe('UsersService', () => {
     });
 
     it('should throw BadRequestException for wrong current password', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const mockUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
       await expect(service.changePassword('user-1', 'WrongPass', 'NewPass456')).rejects.toThrow(
@@ -325,7 +326,8 @@ describe('UsersService', () => {
 
   describe('adminUpdateUser', () => {
     it('should update user', async () => {
-      prisma.user.findUnique.mockResolvedValue(createMockUser());
+      const existingUser = createMockUser();
+      prisma.user.findUnique.mockResolvedValue(existingUser);
       const updatedUser = createMockUser({ firstName: 'Updated' });
       prisma.user.update.mockResolvedValue(updatedUser);
 

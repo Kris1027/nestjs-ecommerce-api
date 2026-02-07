@@ -132,17 +132,19 @@ export class OrderListener {
         return;
       }
 
-      // Create in-app notification for each admin
-      for (const admin of admins) {
-        await this.notificationsService.notify({
-          userId: admin.id,
-          type: NotificationType.REFUND_REQUEST_CREATED,
-          title: 'New refund request',
-          body: `Customer requested refund for order ${event.orderNumber}.`,
-          referenceId: event.orderId,
-          // No email here — we send batch email below
-        });
-      }
+      // Create in-app notification for each admin (concurrent for performance)
+      await Promise.all(
+        admins.map((admin) =>
+          this.notificationsService.notify({
+            userId: admin.id,
+            type: NotificationType.REFUND_REQUEST_CREATED,
+            title: 'New refund request',
+            body: `Customer requested refund for order ${event.orderNumber}.`,
+            referenceId: event.orderId,
+            // No email here — we send batch email below
+          }),
+        ),
+      );
 
       // Send batch email to all admins
       const adminEmail = refundRequestAdminEmail(event.orderNumber, event.userEmail, event.reason);

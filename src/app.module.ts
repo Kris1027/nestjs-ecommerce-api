@@ -30,6 +30,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TaxModule } from './modules/tax/tax.module';
 import { GuestCartModule } from './modules/guest-cart/guest-cart.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -120,6 +121,7 @@ import { QueueModule } from './modules/queue/queue.module';
     NotificationsModule,
     TaxModule,
     GuestCartModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

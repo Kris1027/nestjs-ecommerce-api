@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 // HealthCheckService orchestrates running multiple health indicators
 // HealthCheck decorator formats the response as a proper health check response
 // HealthCheckResult is the return type for health check methods
@@ -10,40 +11,42 @@ import { Public } from '../../common/decorators';
 import { PrismaHealthIndicator } from './indicators/prisma.health';
 import { RedisHealthIndicator } from './indicators/redis.health';
 
+@ApiTags('Health') // Groups endpoints under "Health" in Swagger UI
 @Controller('health')
 export class HealthController {
   constructor(
-    // Orchestrates running all health checks
     private readonly health: HealthCheckService,
-    // Database health indicator
     private readonly prismaHealth: PrismaHealthIndicator,
-    // Redis/queue health indicator
     private readonly redisHealth: RedisHealthIndicator,
   ) {}
 
-  // GET /health - Liveness probe
-  // Kubernetes calls this to check if the process is alive
-  // Should be fast with no external dependencies
   @Get()
   @Public()
   @HealthCheck()
+  @ApiOperation({
+    summary: 'Liveness probe',
+    description:
+      'Check if the application is running. Used by Kubernetes/load balancers to detect frozen processes.',
+  })
+  @ApiResponse({ status: 200, description: 'Application is alive' })
+  @ApiResponse({ status: 503, description: 'Application is not responding' })
   checkLiveness(): Promise<HealthCheckResult> {
-    // Empty array = just check if the app responds
-    // This is intentionally minimal - liveness should be fast
     return this.health.check([]);
   }
 
-  // GET /health/ready - Readiness probe
-  // Kubernetes calls this to check if the app can handle traffic
-  // Checks all critical dependencies (database, redis, etc.)
   @Get('ready')
   @Public()
   @HealthCheck()
+  @ApiOperation({
+    summary: 'Readiness probe',
+    description:
+      'Check if the application can handle traffic. Verifies database and Redis connectivity.',
+  })
+  @ApiResponse({ status: 200, description: 'Application is ready to accept traffic' })
+  @ApiResponse({ status: 503, description: 'Application dependencies are unavailable' })
   checkReadiness(): Promise<HealthCheckResult> {
     return this.health.check([
-      // Check database connectivity
       () => this.prismaHealth.isHealthy('database'),
-      // Check Redis connectivity (required for BullMQ queues)
       () => this.redisHealth.isHealthy('redis'),
     ]);
   }

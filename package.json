@@ -116,7 +116,10 @@
         "statements": 80
       }
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/test/setup.ts"
+    ]
   },
   "lint-staged": {
     "*.ts": [

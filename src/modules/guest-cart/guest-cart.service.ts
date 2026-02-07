@@ -329,22 +329,28 @@ export class GuestCartService {
       });
     }
 
+    // Preload existing cart items to avoid N+1 queries
+    const activeGuestItems = guestCart.items.filter((item) => item.product.isActive);
+    const guestProductIds = activeGuestItems.map((item) => item.product.id);
+
+    const existingItems =
+      guestProductIds.length > 0
+        ? await this.prisma.cartItem.findMany({
+            where: {
+              cartId: userCart.id,
+              productId: { in: guestProductIds },
+            },
+            select: { id: true, quantity: true, productId: true },
+          })
+        : [];
+
+    const existingItemsByProductId = new Map(
+      existingItems.map((item) => [item.productId, { id: item.id, quantity: item.quantity }]),
+    );
+
     // Merge items (add quantities for existing products)
-    for (const guestItem of guestCart.items) {
-      if (!guestItem.product.isActive) {
-        continue;
-      }
-
-      const existingItem = await this.prisma.cartItem.findUnique({
-        where: {
-          cartId_productId: {
-            cartId: userCart.id,
-            productId: guestItem.product.id,
-          },
-        },
-        select: { id: true, quantity: true },
-      });
-
+    for (const guestItem of activeGuestItems) {
+      const existingItem = existingItemsByProductId.get(guestItem.product.id);
       const availableStock = guestItem.product.stock - guestItem.product.reservedStock;
 
       if (existingItem) {

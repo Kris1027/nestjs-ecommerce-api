@@ -302,7 +302,17 @@ export class GuestCartService {
   async mergeIntoUserCart(rawToken: string, userId: string): Promise<void> {
     const guestCart = await this.findCartByToken(rawToken);
 
-    if (!guestCart || guestCart.items.length === 0) {
+    if (!guestCart) {
+      return; // No guest cart to merge
+    }
+
+    // Ignore and clean up expired guest carts
+    if (guestCart.expiresAt < new Date()) {
+      await this.prisma.guestCart.delete({ where: { id: guestCart.id } });
+      return;
+    }
+
+    if (guestCart.items.length === 0) {
       return; // Nothing to merge
     }
 

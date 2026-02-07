@@ -1,20 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { NotificationType } from '../../../generated/prisma/client';
+import { NotificationType, Role } from '../../../generated/prisma/client';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { NotificationsService } from '../notifications.service';
-import { NotificationEvents, OrderCreatedEvent, OrderStatusChangedEvent } from '../events';
+import { EmailService } from '../email.service';
+import {
+  NotificationEvents,
+  OrderCreatedEvent,
+  OrderStatusChangedEvent,
+  RefundRequestCreatedEvent,
+} from '../events';
 import {
   orderCreatedEmail,
   orderShippedEmail,
   orderDeliveredEmail,
   orderCancelledEmail,
+  refundRequestReceivedEmail,
+  refundRequestAdminEmail,
 } from '../email-templates';
 
 @Injectable()
 export class OrderListener {
   private readonly logger = new Logger(OrderListener.name);
 
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   // Fired after checkout completes successfully
   @OnEvent(NotificationEvents.ORDER_CREATED, { async: true })
@@ -89,6 +102,58 @@ export class OrderListener {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to handle order.status.changed: ${msg}`);
+    }
+  }
+
+  // Fired when customer submits a refund request
+  @OnEvent(NotificationEvents.REFUND_REQUEST_CREATED, { async: true })
+  async handleRefundRequestCreated(event: RefundRequestCreatedEvent): Promise<void> {
+    try {
+      // 1. Notify the customer — confirmation that request was received
+      const customerEmail = refundRequestReceivedEmail(event.userFirstName, event.orderNumber);
+
+      await this.notificationsService.notify({
+        userId: event.userId,
+        type: NotificationType.REFUND_REQUEST_CREATED,
+        title: 'Refund request received',
+        body: `Your refund request for order ${event.orderNumber} has been submitted.`,
+        referenceId: event.orderId,
+        email: { to: event.userEmail, ...customerEmail },
+      });
+
+      // 2. Notify all admins — so they can review the request
+      const admins = await this.prisma.user.findMany({
+        where: { role: Role.ADMIN, isActive: true },
+        select: { id: true, email: true },
+      });
+
+      if (admins.length === 0) {
+        this.logger.warn('No active admins found for refund request notification');
+        return;
+      }
+
+      // Create in-app notification for each admin
+      for (const admin of admins) {
+        await this.notificationsService.notify({
+          userId: admin.id,
+          type: NotificationType.REFUND_REQUEST_CREATED,
+          title: 'New refund request',
+          body: `Customer requested refund for order ${event.orderNumber}.`,
+          referenceId: event.orderId,
+          // No email here — we send batch email below
+        });
+      }
+
+      // Send batch email to all admins
+      const adminEmail = refundRequestAdminEmail(event.orderNumber, event.userEmail, event.reason);
+      await this.emailService.sendToMany(
+        admins.map((a) => a.email),
+        adminEmail.subject,
+        adminEmail.html,
+      );
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to handle refund.request.created: ${msg}`);
     }
   }
 }

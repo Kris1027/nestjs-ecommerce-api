@@ -23,6 +23,7 @@ import {
   NotificationEvents,
   OrderCreatedEvent,
   OrderStatusChangedEvent,
+  RefundRequestCreatedEvent,
 } from '../notifications/events';
 
 // ============================================
@@ -500,6 +501,7 @@ export class OrdersService {
         status: true,
         orderNumber: true,
         refundRequest: { select: { id: true } }, // Check if request already exists
+        user: { select: { email: true, firstName: true } }, // For event notification
       },
     });
 
@@ -545,7 +547,18 @@ export class OrdersService {
       throw error;
     }
 
-    // TODO: Emit event for admin notification (RefundRequestCreatedEvent)
+    // Emit event for customer confirmation + admin notification
+    this.eventEmitter.emit(
+      NotificationEvents.REFUND_REQUEST_CREATED,
+      new RefundRequestCreatedEvent(
+        userId,
+        order.user.email,
+        order.user.firstName,
+        order.id,
+        order.orderNumber,
+        reason,
+      ),
+    );
 
     return refundRequest;
   }

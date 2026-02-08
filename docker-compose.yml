@@ -32,7 +32,7 @@ services:
     healthcheck:
       # pg_isready is PostgreSQL's built-in readiness check
       # Other services wait for this before starting (depends_on condition)
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-nestjs_ecommerce}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -83,7 +83,7 @@ services:
       - .env
     environment:
       # Override .env to use Docker internal networking (service names as hosts)
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nestjs_ecommerce?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nestjs_ecommerce}?schema=public
       REDIS_URL: redis://redis:6379
     volumes:
       # Bind mount source code for hot reload

@@ -91,10 +91,11 @@ services:
       # Bind mount source code for hot reload
       - ./src:/app/src
       - ./prisma:/app/prisma
-      # Anonymous volumes prevent host from overriding container's installed deps
+      # Anonymous volume prevents host node_modules from overriding container's
       - /app/node_modules
-      - /app/dist
-      - /app/src/generated
+    # Generate Prisma client before starting dev server
+    # Needed because ./src bind mount shadows the build-time generated client
+    command: sh -c "pnpm prisma generate && pnpm run start:dev"
     networks:
       - app-network
 

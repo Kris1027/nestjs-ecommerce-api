@@ -28,9 +28,11 @@ COPY prisma/schema.prisma ./prisma/schema.prisma
 
 # --frozen-lockfile: fails if lockfile doesn't match package.json (reproducible builds)
 # --prod: skip devDependencies (no typescript, jest, eslint in production)
+# --ignore-scripts: skip postinstall (prisma generate) — prisma CLI is a devDependency
+# The generated client is copied from the build stage instead
 # --mount=type=cache: BuildKit feature — persists pnpm store across builds for speed
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile
+    pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # ============================================================
 # Stage 3: BUILD — install all deps and compile TypeScript

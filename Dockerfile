@@ -89,7 +89,7 @@ EXPOSE 3000
 # If 3 consecutive checks fail, Docker marks the container as unhealthy
 # start-period gives NestJS time to boot before checks begin
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"
+    CMD node -e "const req = require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }); req.setTimeout(2000, () => { req.destroy(); process.exit(1); }); req.on('error', () => { process.exit(1); });"
 
 # "node dist/main.js" not "pnpm start:prod" — avoids pnpm overhead
 # and ensures SIGTERM goes directly to Node (important for graceful shutdown)

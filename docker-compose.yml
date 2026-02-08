@@ -1,0 +1,112 @@
+# docker-compose.yml — Local development environment
+# Usage:
+#   docker compose up        → start all services
+#   docker compose up -d     → start in background (detached)
+#   docker compose down      → stop all services
+#   docker compose down -v   → stop and DELETE all data (volumes)
+#   docker compose logs app  → view app logs
+#   docker compose build     → rebuild after Dockerfile changes
+
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL 17 — primary database
+  # ──────────────────────────────────────────────
+  postgres:
+    # Alpine variant is fine for PostgreSQL (no native Node.js module issues)
+    image: postgres:17-alpine
+    container_name: nestjs-ecommerce-postgres
+    # Restart on crash, but not if manually stopped
+    restart: unless-stopped
+    ports:
+      # host:container — access from host at localhost:5432
+      - '5432:5432'
+    environment:
+      # These create the database and user on first launch
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nestjs_ecommerce
+    volumes:
+      # Named volume persists data across container restarts
+      # Without this, all data is lost when the container stops
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready is PostgreSQL's built-in readiness check
+      # Other services wait for this before starting (depends_on condition)
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ──────────────────────────────────────────────
+  # Redis 7 — BullMQ job queues
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: nestjs-ecommerce-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      # redis-cli ping returns "PONG" when Redis is ready
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app-network
+
+  # ──────────────────────────────────────────────
+  # NestJS Application — development mode
+  # ──────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Targets the "development" stage from our multi-stage Dockerfile
+      target: development
+    container_name: nestjs-ecommerce-app
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+      # Node.js debugger port — attach VS Code debugger to this
+      - '9229:9229'
+    depends_on:
+      # condition: service_healthy waits for healthcheck to pass
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      # Loads your .env file — same one you use for local development
+      - .env
+    environment:
+      # Override .env to use Docker internal networking (service names as hosts)
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nestjs_ecommerce?schema=public
+      REDIS_URL: redis://redis:6379
+    volumes:
+      # Bind mount source code for hot reload
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      # Anonymous volumes prevent host from overriding container's installed deps
+      - /app/node_modules
+      - /app/dist
+      - /app/src/generated
+    networks:
+      - app-network
+
+# Named volumes persist data across container restarts and rebuilds
+# "docker compose down" preserves them; "docker compose down -v" deletes them
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Custom bridge network — all services can reach each other by service name
+networks:
+  app-network:
+    driver: bridge

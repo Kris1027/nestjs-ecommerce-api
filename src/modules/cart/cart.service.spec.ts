@@ -44,7 +44,7 @@ describe('CartService', () => {
       id: productId,
       name: 'Test Product',
       slug: 'test-product',
-      price: { toNumber: () => 29.99, toString: () => '29.99' } as unknown as number,
+      price: 29.99,
       stock: 100,
       reservedStock: 10,
       isActive: true,

@@ -69,10 +69,14 @@ describe('CloudinaryService', () => {
 
     // Eliminate retry delays for error tests (withRetry uses exponential backoff)
     const mockSetTimeoutImmediate = (): void => {
-      jest.spyOn(global, 'setTimeout').mockImplementation((fn: () => void) => {
-        fn();
-        return 0 as unknown as NodeJS.Timeout;
-      });
+      jest
+        .spyOn(global, 'setTimeout')
+        .mockImplementation(
+          (fn: (...args: unknown[]) => void, _delay?: number, ...args: unknown[]) => {
+            fn(...args);
+            return 0 as unknown as NodeJS.Timeout;
+          },
+        );
     };
 
     it('should throw when upload fails', async () => {

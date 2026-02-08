@@ -5,6 +5,7 @@ import { createMockEventEmitter } from '@test/mocks/common.mock';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { StockMovementType } from '../../generated/prisma/client';
 import { NotificationEvents } from '../notifications/events';
 
 describe('InventoryService', () => {
@@ -218,7 +219,7 @@ describe('InventoryService', () => {
       const result = await service.adjustStock(
         mockStockProduct.id,
         10,
-        'ADJUSTMENT' as never,
+        StockMovementType.ADJUSTMENT,
         'cluser123456789012345678',
         'Restocking',
       );
@@ -267,7 +268,7 @@ describe('InventoryService', () => {
       });
       prisma.stockMovement.create.mockResolvedValue(mockMovement);
 
-      await service.adjustStock(mockStockProduct.id, -7, 'ADJUSTMENT' as never);
+      await service.adjustStock(mockStockProduct.id, -7, StockMovementType.ADJUSTMENT);
 
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         NotificationEvents.LOW_STOCK,
@@ -287,7 +288,7 @@ describe('InventoryService', () => {
       });
 
       await expect(
-        service.adjustStock(mockStockProduct.id, -10, 'ADJUSTMENT' as never),
+        service.adjustStock(mockStockProduct.id, -10, StockMovementType.ADJUSTMENT),
       ).rejects.toThrow(BadRequestException);
 
       expect(prisma.product.update).not.toHaveBeenCalled();
@@ -296,9 +297,9 @@ describe('InventoryService', () => {
     it('should throw NotFoundException when product does not exist', async () => {
       prisma.product.findUnique.mockResolvedValue(null);
 
-      await expect(service.adjustStock('nonexistent', 10, 'ADJUSTMENT' as never)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.adjustStock('nonexistent', 10, StockMovementType.ADJUSTMENT),
+      ).rejects.toThrow(NotFoundException);
 
       expect(prisma.product.update).not.toHaveBeenCalled();
       expect(prisma.stockMovement.create).not.toHaveBeenCalled();

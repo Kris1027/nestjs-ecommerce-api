@@ -38,7 +38,6 @@ pnpm-debug.log*
 # Testing - production image doesn't run tests
 test
 *.spec.ts
-coverage
 .nyc_output
 
 # Documentation - not needed at runtime
@@ -51,7 +50,6 @@ docker-compose*
 .dockerignore
 
 # CI/CD configs
-.github
 .husky
 
 # Project-specific excludes

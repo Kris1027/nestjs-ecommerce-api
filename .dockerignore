@@ -1,0 +1,63 @@
+# Dependencies - Docker will install its own inside the container
+# Sending host node_modules would waste ~500MB+ of build context transfer time
+node_modules
+.pnpm-store
+
+# Build outputs - we rebuild from source inside Docker
+dist
+build
+coverage
+
+# Generated files - Prisma client is regenerated via postinstall hook
+src/generated
+
+# Version control - image doesn't need git history (~50MB+ savings)
+.git
+.gitignore
+.gitattributes
+.github
+
+# IDE/Editor configs - irrelevant inside a container
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Secrets - NEVER bake .env files into images
+# Environment variables are injected at runtime via docker-compose or orchestrator
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing - production image doesn't run tests
+test
+*.spec.ts
+coverage
+.nyc_output
+
+# Documentation - not needed at runtime
+*.md
+implementation-docs
+
+# Docker files themselves - prevent recursive inclusion
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD configs
+.github
+.husky
+
+# Project-specific excludes
+.claude
+.mcp*
+.postman
+postman
+.temp
+.tmp

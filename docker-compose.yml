@@ -22,9 +22,10 @@ services:
       - '5432:5432'
     environment:
       # These create the database and user on first launch
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nestjs_ecommerce
+      # Values sourced from .env with local dev defaults
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-nestjs_ecommerce}
     volumes:
       # Named volume persists data across container restarts
       # Without this, all data is lost when the container stops

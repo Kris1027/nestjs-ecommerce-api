@@ -1,5 +1,7 @@
 # NestJS Ecommerce Backend
 
+[![CI](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml)
+
 Single-vendor ecommerce REST API built with NestJS 11, TypeScript 5.7, Prisma 7, and PostgreSQL.
 
 ## Tech Stack
@@ -15,6 +17,7 @@ Single-vendor ecommerce REST API built with NestJS 11, TypeScript 5.7, Prisma 7,
 - **Docs:** Swagger/OpenAPI at `/docs`
 - **Testing:** Jest (18 test suites, 416 tests)
 - **Containerization:** Docker + Docker Compose
+- **CI:** GitHub Actions (lint, test, build on every PR)
 
 ## Features
 

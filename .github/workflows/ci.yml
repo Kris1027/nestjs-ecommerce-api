@@ -13,6 +13,21 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://user:password@localhost:5432/test_db
+  JWT_SECRET: ci-test-jwt-secret-that-is-at-least-32-characters-long
+  JWT_REFRESH_SECRET: ci-test-refresh-secret-that-is-at-least-32-chars
+  CLOUDINARY_CLOUD_NAME: test-cloud
+  CLOUDINARY_API_KEY: test-api-key
+  CLOUDINARY_API_SECRET: test-api-secret
+  STRIPE_SECRET_KEY: sk_test_ci_fake_key_for_validation
+  STRIPE_WEBHOOK_SECRET: whsec_ci_fake_secret_for_validation
+  RESEND_API_KEY: re_ci_fake_key_for_validation
+  EMAIL_FROM: ci-test@example.com
+  FRONTEND_URL: http://localhost:3000
+  REDIS_URL: redis://localhost:6379
+
 jobs:
   lint:
     name: Lint
@@ -42,21 +57,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
-    env:
-      NODE_ENV: test
-      DATABASE_URL: postgresql://user:password@localhost:5432/test_db
-      JWT_SECRET: ci-test-jwt-secret-that-is-at-least-32-characters-long
-      JWT_REFRESH_SECRET: ci-test-refresh-secret-that-is-at-least-32-chars
-      CLOUDINARY_CLOUD_NAME: test-cloud
-      CLOUDINARY_API_KEY: test-api-key
-      CLOUDINARY_API_SECRET: test-api-secret
-      STRIPE_SECRET_KEY: sk_test_ci_fake_key_for_validation
-      STRIPE_WEBHOOK_SECRET: whsec_ci_fake_secret_for_validation
-      RESEND_API_KEY: re_ci_fake_key_for_validation
-      EMAIL_FROM: ci-test@example.com
-      FRONTEND_URL: http://localhost:3000
-      REDIS_URL: redis://localhost:6379
 
     steps:
       - name: Checkout code

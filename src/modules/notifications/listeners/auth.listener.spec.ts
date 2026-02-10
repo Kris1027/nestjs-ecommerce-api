@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { AuthListener } from './auth.listener';
 import { NotificationsService } from '../notifications.service';
@@ -43,11 +44,14 @@ describe('AuthListener', () => {
     });
 
     it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('DB down'));
       const event = new UserRegisteredEvent('user1', 'test@example.com', 'John');
 
-      // Should not throw — listeners must be resilient
       await expect(listener.handleUserRegistered(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle user.registered'),
+      );
     });
   });
 
@@ -68,10 +72,14 @@ describe('AuthListener', () => {
     });
 
     it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('DB down'));
       const event = new PasswordChangedEvent('user1', 'test@example.com', 'John');
 
       await expect(listener.handlePasswordChanged(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle password.changed'),
+      );
     });
   });
 });

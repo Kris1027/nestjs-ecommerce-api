@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { OrderListener } from './order.listener';
 import { NotificationsService } from '../notifications.service';
@@ -63,7 +64,8 @@ describe('OrderListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new OrderCreatedEvent(
         'user1',
@@ -75,6 +77,9 @@ describe('OrderListener', () => {
       );
 
       await expect(listener.handleOrderCreated(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle order.created'),
+      );
     });
   });
 
@@ -118,12 +123,16 @@ describe('OrderListener', () => {
       expect(notificationsService.notify).not.toHaveBeenCalled();
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
 
       await expect(
         listener.handleOrderStatusChanged(baseEvent('SHIPPED')),
       ).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle order.status.changed'),
+      );
     });
   });
 
@@ -178,10 +187,14 @@ describe('OrderListener', () => {
       expect(emailService.sendToMany).not.toHaveBeenCalled();
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
 
       await expect(listener.handleRefundRequestCreated(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle refund.request.created'),
+      );
     });
   });
 });

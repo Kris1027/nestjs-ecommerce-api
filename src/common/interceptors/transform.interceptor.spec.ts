@@ -1,6 +1,6 @@
 import { type CallHandler, type ExecutionContext } from '@nestjs/common';
 import { of, lastValueFrom } from 'rxjs';
-import { TransformInterceptor } from './transform.interceptor';
+import { TransformInterceptor, type ApiResponse } from './transform.interceptor';
 
 describe('TransformInterceptor', () => {
   let interceptor: TransformInterceptor<unknown>;
@@ -11,10 +11,10 @@ describe('TransformInterceptor', () => {
 
   const mockContext = {} as ExecutionContext;
 
-  async function runInterceptor(data: unknown): Promise<Record<string, unknown>> {
+  async function runInterceptor(data: unknown): Promise<ApiResponse<unknown>> {
     const callHandler: CallHandler = { handle: () => of(data) };
     const result$ = interceptor.intercept(mockContext, callHandler);
-    return lastValueFrom(result$) as unknown as Promise<Record<string, unknown>>;
+    return lastValueFrom(result$);
   }
 
   describe('standard responses', () => {
@@ -76,7 +76,7 @@ describe('TransformInterceptor', () => {
     it('should include a valid ISO timestamp', async () => {
       const result = await runInterceptor({});
 
-      expect(new Date(result.timestamp as string).toISOString()).toBe(result.timestamp);
+      expect(new Date(result.timestamp).toISOString()).toBe(result.timestamp);
     });
   });
 });

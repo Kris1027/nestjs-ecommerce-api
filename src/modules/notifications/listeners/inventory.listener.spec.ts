@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { InventoryListener } from './inventory.listener';
 import { NotificationsService } from '../notifications.service';
@@ -77,10 +78,12 @@ describe('InventoryListener', () => {
       expect(emailService.sendToMany).not.toHaveBeenCalled();
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       prisma.user.findMany.mockRejectedValue(new Error('DB down'));
 
       await expect(listener.handleLowStock(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to handle low_stock'));
     });
   });
 });

@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { PaymentListener } from './payment.listener';
 import { NotificationsService } from '../notifications.service';
@@ -58,7 +59,8 @@ describe('PaymentListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new PaymentSucceededEvent(
         'user1',
@@ -70,6 +72,9 @@ describe('PaymentListener', () => {
       );
 
       await expect(listener.handlePaymentSucceeded(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle payment.succeeded'),
+      );
     });
   });
 
@@ -94,7 +99,8 @@ describe('PaymentListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new PaymentFailedEvent(
         'user1',
@@ -105,6 +111,9 @@ describe('PaymentListener', () => {
       );
 
       await expect(listener.handlePaymentFailed(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle payment.failed'),
+      );
     });
   });
 
@@ -129,7 +138,8 @@ describe('PaymentListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new RefundInitiatedEvent(
         'user1',
@@ -141,6 +151,9 @@ describe('PaymentListener', () => {
       );
 
       await expect(listener.handleRefundInitiated(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle refund.initiated'),
+      );
     });
   });
 
@@ -164,7 +177,8 @@ describe('PaymentListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new RefundCompletedEvent(
         'user1',
@@ -176,6 +190,9 @@ describe('PaymentListener', () => {
       );
 
       await expect(listener.handleRefundCompleted(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle refund.completed'),
+      );
     });
   });
 
@@ -192,11 +209,15 @@ describe('PaymentListener', () => {
       );
     });
 
-    it('should catch errors without throwing', async () => {
+    it('should catch and log errors without throwing', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       notificationsService.notify.mockRejectedValue(new Error('fail'));
       const event = new RefundFailedEvent('user1', 'test@example.com', 'John', 'order1', 'ORD-001');
 
       await expect(listener.handleRefundFailed(event)).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to handle refund.failed'),
+      );
     });
   });
 });

@@ -103,8 +103,7 @@
     },
     "moduleNameMapper": {
       "^@test/(.*)$": "<rootDir>/test/$1",
-      "^ipaddr\\.js$": "ipaddr.js",
-      "^(.*)\\.js$": "$1"
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",

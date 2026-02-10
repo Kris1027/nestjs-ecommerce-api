@@ -181,6 +181,15 @@ export function createMockStripeClient(): {
 }
 
 /**
+ * Mock NotificationsService for listener testing
+ */
+export function createMockNotificationsService(): {
+  notify: jest.Mock;
+} {
+  return { notify: jest.fn().mockResolvedValue(undefined) };
+}
+
+/**
  * Mock Logger for testing log output
  */
 export function createMockLogger(): {

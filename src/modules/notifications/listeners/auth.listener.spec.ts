@@ -4,10 +4,7 @@ import { AuthListener } from './auth.listener';
 import { NotificationsService } from '../notifications.service';
 import { UserRegisteredEvent, PasswordChangedEvent } from '../events';
 import { NotificationType } from '../../../generated/prisma/client';
-
-function createMockNotificationsService(): { notify: jest.Mock } {
-  return { notify: jest.fn().mockResolvedValue(undefined) };
-}
+import { createMockNotificationsService } from '@test/mocks/common.mock';
 
 describe('AuthListener', () => {
   let listener: AuthListener;

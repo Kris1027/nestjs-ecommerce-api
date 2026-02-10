@@ -7,11 +7,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { OrderCreatedEvent, OrderStatusChangedEvent, RefundRequestCreatedEvent } from '../events';
 import { NotificationType } from '../../../generated/prisma/client';
 import { createMockPrismaClient, resetMockPrismaClient } from '@test/mocks/prisma.mock';
-import { createMockEmailService } from '@test/mocks/common.mock';
-
-function createMockNotificationsService(): { notify: jest.Mock } {
-  return { notify: jest.fn().mockResolvedValue(undefined) };
-}
+import { createMockEmailService, createMockNotificationsService } from '@test/mocks/common.mock';
 
 describe('OrderListener', () => {
   let listener: OrderListener;

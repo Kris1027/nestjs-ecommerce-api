@@ -64,7 +64,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof ZodValidationException) {
       const zodError = exception.getZodError();
       // Type guard: ensure zodError has the expected shape
-      if (zodError && typeof zodError === 'object' && 'issues' in zodError) {
+      if (
+        zodError &&
+        typeof zodError === 'object' &&
+        'issues' in zodError &&
+        Array.isArray(zodError.issues)
+      ) {
         const issues = zodError.issues as Array<{ path: (string | number)[]; message: string }>;
         const messages = issues.map((err) => {
           const path = err.path.join('.');

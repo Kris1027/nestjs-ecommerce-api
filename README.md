@@ -1,6 +1,7 @@
 # NestJS Ecommerce Backend
 
 [![CI](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml)
+[![Claude Review](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/claude-review.yml/badge.svg)](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/claude-review.yml)
 
 Single-vendor ecommerce REST API built with NestJS 11, TypeScript 5.7, Prisma 7, and PostgreSQL.
 
@@ -15,9 +16,10 @@ Single-vendor ecommerce REST API built with NestJS 11, TypeScript 5.7, Prisma 7,
 - **Queue:** BullMQ (Redis)
 - **Validation:** Zod + nestjs-zod
 - **Docs:** Swagger/OpenAPI at `/docs`
-- **Testing:** Jest (18 test suites, 416 tests)
+- **Testing:** Jest (41 test suites, 605 tests)
 - **Containerization:** Docker + Docker Compose
 - **CI:** GitHub Actions (lint, test, build on every PR)
+- **Code Review:** Claude AI automated PR reviews
 
 ## Features
 
@@ -75,6 +77,11 @@ pnpm test             # Unit tests
 pnpm test:e2e         # E2E tests
 pnpm test:cov         # Coverage report
 ```
+
+## CI/CD
+
+- **CI** (`ci.yml`) — Runs lint, test, and build in parallel on every PR and push to main
+- **Claude Review** (`claude-review.yml`) — Automated AI code review on every PR. Responds to `@claude` mentions in PR comments for follow-up questions
 
 ## API Docs
 

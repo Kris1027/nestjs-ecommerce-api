@@ -168,10 +168,7 @@ describe('GlobalExceptionFilter', () => {
   });
 
   describe('Zod validation error handling', () => {
-    // NOTE: Zod 4 uses .issues not .errors — filter's 'errors' in zodError check
-    // is always false, so it falls through to the "Validation failed" fallback.
-    // TODO: Fix filter to use .issues for field-level error messages.
-    it('should return 400 with validation error for ZodValidationException', () => {
+    it('should format Zod validation errors with field paths', () => {
       const zodError = new ZodError([
         {
           origin: 'string',
@@ -181,14 +178,31 @@ describe('GlobalExceptionFilter', () => {
           message: 'Required',
           path: ['email'],
         },
+        {
+          origin: 'string',
+          code: 'too_small',
+          minimum: 8,
+          inclusive: true,
+          message: 'Too short',
+          path: ['password'],
+        },
       ]);
       const exception = new ZodValidationException(zodError);
 
       filter.catch(exception, mockHost);
 
       expect(getStatusCode()).toBe(400);
-      expect(getResponseBody().message).toBe('Validation failed');
+      expect(getResponseBody().message).toBe('email: Required, password: Too short');
       expect(getResponseBody().error).toBe('Validation Error');
+    });
+
+    it('should fall back to generic message when zodError shape is unexpected', () => {
+      const exception = new ZodValidationException({} as InstanceType<typeof ZodError>);
+
+      filter.catch(exception, mockHost);
+
+      expect(getStatusCode()).toBe(400);
+      expect(getResponseBody().message).toBe('Validation failed');
     });
   });
 

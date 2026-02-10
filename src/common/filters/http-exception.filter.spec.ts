@@ -25,8 +25,8 @@ describe('GlobalExceptionFilter', () => {
 
     filter = new GlobalExceptionFilter(httpAdapterHost);
 
-    jest.spyOn(filter['logger'], 'error').mockImplementation();
-    jest.spyOn(filter['logger'], 'warn').mockImplementation();
+    jest.spyOn(filter['logger'], 'error').mockImplementation(() => undefined);
+    jest.spyOn(filter['logger'], 'warn').mockImplementation(() => undefined);
 
     mockHost = {
       switchToHttp: jest.fn().mockReturnValue({

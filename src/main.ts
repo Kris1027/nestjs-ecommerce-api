@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('NestJS Ecommerce API')
       .setDescription('Single-vendor ecommerce backend API')
-      .setVersion('1.0')
+      .setVersion('1.0.0')
       .addBearerAuth(
         {
           type: 'http',

@@ -1,6 +1,6 @@
 {
-  "name": "nestjs-ecommerce",
-  "version": "0.0.1",
+  "name": "nestjs-ecommerce-api",
+  "version": "1.0.0",
   "description": "",
   "author": "",
   "private": true,

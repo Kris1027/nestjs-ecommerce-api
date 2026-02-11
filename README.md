@@ -1,6 +1,6 @@
 # NestJS Ecommerce Backend
 
-[![CI](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/Kris1027/nestjs-ecommerce/actions/workflows/ci.yml)
+[![CI](https://github.com/Kris1027/nestjs-ecommerce-api/actions/workflows/ci.yml/badge.svg)](https://github.com/Kris1027/nestjs-ecommerce-api/actions/workflows/ci.yml)
 
 Single-vendor ecommerce REST API built with NestJS 11, TypeScript 5.7, Prisma 7, and PostgreSQL.
 

@@ -1,9 +1,31 @@
 {
   "name": "nestjs-ecommerce-api",
   "version": "1.0.0",
-  "description": "",
-  "author": "",
+  "description": "Production-ready single-vendor ecommerce REST API built with NestJS 11, Prisma 7, and PostgreSQL",
+  "author": "Krzysztof Obarzanek (https://github.com/Kris1027)",
   "private": true,
+  "homepage": "https://github.com/Kris1027/nestjs-ecommerce-api#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kris1027/nestjs-ecommerce-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kris1027/nestjs-ecommerce-api/issues"
+  },
+  "keywords": [
+    "nestjs",
+    "ecommerce",
+    "api",
+    "typescript",
+    "prisma",
+    "postgresql",
+    "stripe",
+    "rest-api"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "build": "nest build",

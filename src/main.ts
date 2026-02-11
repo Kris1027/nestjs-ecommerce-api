@@ -1,3 +1,4 @@
+import { version } from '../package.json';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
@@ -27,7 +28,7 @@ async function bootstrap(): Promise<void> {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('NestJS Ecommerce API')
       .setDescription('Single-vendor ecommerce backend API')
-      .setVersion('1.0.0')
+      .setVersion(version)
       .addBearerAuth(
         {
           type: 'http',

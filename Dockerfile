@@ -6,6 +6,9 @@
 # and Node.js officially supports Debian but not Alpine
 FROM node:22-slim AS base
 
+# Prisma requires OpenSSL to detect the correct engine binary
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 # corepack is Node's built-in package manager manager
 # It reads "packageManager" from package.json and installs that exact pnpm version
 # This guarantees the same pnpm version locally and in Docker
@@ -30,7 +33,6 @@ COPY prisma/schema.prisma ./prisma/schema.prisma
 # --prod: skip devDependencies (no typescript, jest, eslint in production)
 # --ignore-scripts: skip postinstall (prisma generate) — prisma CLI is a devDependency
 # The generated client is copied from the build stage instead
-# --frozen-lockfile: fails if lockfile doesn't match package.json (reproducible builds)
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # ============================================================
@@ -89,6 +91,11 @@ WORKDIR /app
 
 # Copy production node_modules from stage 2 (no devDependencies)
 COPY --from=prod-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy Prisma CLI from build stage (needed for pre-deploy migrations)
+# prisma is a devDependency so it's not in prod-deps
+COPY --from=build --chown=nodejs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=build --chown=nodejs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 # Copy compiled JavaScript from stage 3
 COPY --from=build --chown=nodejs:nodejs /app/dist ./dist

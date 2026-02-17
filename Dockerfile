@@ -52,7 +52,29 @@ COPY . .
 RUN pnpm build
 
 # ============================================================
-# Stage 4: PRODUCTION — minimal runtime image
+# Stage 4: DEVELOPMENT — for docker-compose local dev only
+# ============================================================
+FROM base AS development
+
+ENV NODE_ENV=development
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+COPY prisma/schema.prisma ./prisma/schema.prisma
+
+RUN pnpm install --frozen-lockfile
+
+# Copy all source (will be overridden by volume mount in docker-compose)
+COPY . .
+
+EXPOSE 3000 9229
+
+CMD ["pnpm", "run", "start:dev"]
+
+# ============================================================
+# Stage 5: PRODUCTION — minimal runtime image (default target)
+# Must be LAST so Railway/Docker build this stage by default
 # ============================================================
 FROM base AS production
 
@@ -92,24 +114,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # "node dist/main.js" not "pnpm start:prod" — avoids pnpm overhead
 # and ensures SIGTERM goes directly to Node (important for graceful shutdown)
 CMD ["node", "dist/main.js"]
-
-# ============================================================
-# Stage 5: DEVELOPMENT — for docker-compose local dev
-# ============================================================
-FROM base AS development
-
-ENV NODE_ENV=development
-
-WORKDIR /app
-
-COPY package.json pnpm-lock.yaml ./
-COPY prisma/schema.prisma ./prisma/schema.prisma
-
-RUN pnpm install --frozen-lockfile
-
-# Copy all source (will be overridden by volume mount in docker-compose)
-COPY . .
-
-EXPOSE 3000 9229
-
-CMD ["pnpm", "run", "start:dev"]

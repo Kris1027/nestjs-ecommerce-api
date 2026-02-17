@@ -31,7 +31,7 @@ COPY prisma/schema.prisma ./prisma/schema.prisma
 # --ignore-scripts: skip postinstall (prisma generate) — prisma CLI is a devDependency
 # The generated client is copied from the build stage instead
 # --mount=type=cache: BuildKit feature — persists pnpm store across builds for speed
-# Railway requires cache IDs to be prefixed; omit id= for compatibility
+# Railway's builder rejects custom cache IDs; omit id= for compatibility
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --prod --frozen-lockfile --ignore-scripts
 

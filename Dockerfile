@@ -30,10 +30,8 @@ COPY prisma/schema.prisma ./prisma/schema.prisma
 # --prod: skip devDependencies (no typescript, jest, eslint in production)
 # --ignore-scripts: skip postinstall (prisma generate) — prisma CLI is a devDependency
 # The generated client is copied from the build stage instead
-# --mount=type=cache: BuildKit feature — persists pnpm store across builds for speed
-# Railway's builder rejects custom cache IDs; omit id= for compatibility
-RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile --ignore-scripts
+# --frozen-lockfile: fails if lockfile doesn't match package.json (reproducible builds)
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # ============================================================
 # Stage 3: BUILD — install all deps and compile TypeScript
@@ -44,8 +42,7 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma/schema.prisma ./prisma/schema.prisma
 
 # Install ALL dependencies (including devDeps like typescript, @nestjs/cli)
-RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # NOW copy source code — this layer busts cache only when code changes,
 # not when dependencies change (that's the whole point of copying package.json first)
@@ -108,8 +105,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma/schema.prisma ./prisma/schema.prisma
 
-RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy all source (will be overridden by volume mount in docker-compose)
 COPY . .
